@@ -1,6 +1,7 @@
 use axum::extract::{Json, State};
 use axum::http::StatusCode;
 
+use futures_util::StreamExt;
 use mongodb::Database;
 
 use serde::Deserialize;
@@ -10,7 +11,7 @@ use tracing::{debug, error};
 use uuid::Uuid;
 
 use crate::db::{collection_timeslots, collection_entries};
-use crate::db::model::{EntryState, Student, BsonEntry};
+use crate::db::model::{EntryState, Student, BsonEntry, Entry};
 
 use super::util::prelude::*;
 
@@ -110,4 +111,34 @@ fn verify_state(state: &EntryState, timeslot_students: &[Student]) -> Result<(),
 		}
 		_ => Ok(())
 	}
+}
+
+pub async fn query(State(db): State<Database>) -> WebResult<Vec<Entry>, &'static str> {
+	spawn_in_current_span(async move {
+		let entries = collection_entries(&db).await;
+
+		let res: Vec<Entry> = match entries.find(None, None).await {
+			Ok(c) => {
+				c
+					.filter_map(|v| async {
+						match v {
+							Ok(x) => Some(x),
+							Err(e) => {
+								error!(%e, "invalid data in database");
+								None
+							}
+						}
+					})
+					.map(|v| v.into())
+					.collect::<Vec<_>>()
+					.await
+			}
+			Err(e) => {
+				error!(%e, "encountered database error");
+				return NotFine(StatusCode::INTERNAL_SERVER_ERROR, "database error")
+			}
+		};
+
+		Fine(StatusCode::OK, res)
+	}).await.unwrap()
 }

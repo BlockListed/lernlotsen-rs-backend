@@ -1,6 +1,6 @@
 use axum::body::Body;
 use axum::http::Request;
-use axum::routing::{get, post};
+use axum::routing::get;
 use axum::{Router, Server};
 
 use mongodb::Database;
@@ -14,11 +14,12 @@ use crate::configuration::Config;
 mod timeslot;
 mod entry;
 mod util;
+mod logic;
 
 pub async fn run(db: Database, cfg: &Config) {
 	let app = Router::new()
 		.route("/timeslot", get(timeslot::query).post(timeslot::create))
-		.route("/entries", post(entry::create))
+		.route("/entries", get(entry::query).post(entry::create))
 		.with_state(db)
 		.layer(TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
 			let request_id = request.extensions()
