@@ -47,6 +47,7 @@ async fn migrate(db: &Database) {
 	let entries_index_index = IndexModel::builder()
 		.keys(bson::doc! {
 			"index": 1,
+			"timeslot": 1,
 		})
 		.options(
 			mongodb::options::IndexOptions::builder()

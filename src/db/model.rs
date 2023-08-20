@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::ops::Range;
 
 use bson::DateTime as BsonDateTime;
@@ -10,7 +9,7 @@ use chrono::Weekday;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Clone)]
 pub struct Student {
 	pub name: String,
 }
@@ -33,7 +32,7 @@ pub struct BaseTimeSlot<UUID, Date> {
 
 #[derive(Serialize, Deserialize)]
 pub enum EntryState {
-	Success { students: HashMap<Student, StudentStatus> },
+	Success { students: Vec<(Student, StudentStatus)> },
 	CanceledByStudents,
 	CanceledByTutor,
 	Holidays,
