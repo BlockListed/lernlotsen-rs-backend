@@ -9,12 +9,12 @@ use chrono::Weekday;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Debug)]
 pub struct Student {
 	pub name: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum StudentStatus {
 	Present,
 	Pardoned,
@@ -30,7 +30,7 @@ pub struct BaseTimeSlot<UUID, Date> {
 	pub timerange: Range<Date>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum EntryState {
 	Success { students: Vec<(Student, StudentStatus)> },
 	CanceledByStudents,

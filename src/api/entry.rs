@@ -6,7 +6,7 @@ use mongodb::Database;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use tracing::{warn, debug};
+use tracing::{debug, error};
 use uuid::Uuid;
 
 use crate::db::{collection_timeslots, collection_entries};
@@ -14,16 +14,15 @@ use crate::db::model::{EntryState, Student, BsonEntry};
 
 use super::util::prelude::*;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct CreateEntry {
 	timeslot_id: Uuid,
 	state: EntryState,
 	index: u32,
 }
 
-#[axum::debug_handler]
 pub async fn create(State(db): State<Database>, Json(r): Json<CreateEntry>) -> WebResult<&'static str, Value> {
-	let r = tokio::spawn(async move {
+	let r = spawn_in_current_span(async move {
 		let timeslots = collection_timeslots(&db).await;
 
 		let selected_timeslot = match timeslots.find_one(bson::doc! {
@@ -37,7 +36,8 @@ pub async fn create(State(db): State<Database>, Json(r): Json<CreateEntry>) -> W
 					}
 				}
 			}
-			Err(_e) => {
+			Err(e) => {
+				error!(%e, "encountered database error");
 				return NotFine(StatusCode::INTERNAL_SERVER_ERROR, json!("database error"));
 			}
 		};
@@ -51,6 +51,7 @@ pub async fn create(State(db): State<Database>, Json(r): Json<CreateEntry>) -> W
 				}
 			}
 			Err(s) => {
+				debug!("request contained invalid students");
 				return NotFine(
 					StatusCode::UNPROCESSABLE_ENTITY,
 					json!({
@@ -72,7 +73,7 @@ pub async fn create(State(db): State<Database>, Json(r): Json<CreateEntry>) -> W
 					return NotFine(StatusCode::CONFLICT, json!("duplicate index"));
 				}
 				_ => {
-					warn!(%e, "encountered database error");
+					error!(%e, "encountered database error");
 
 					return NotFine(StatusCode::INTERNAL_SERVER_ERROR, json!("database error"));
 				}

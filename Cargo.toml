@@ -19,3 +19,5 @@ tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
 uuid = { version = "1.4.1", features = ["v4", "serde"] }
 futures-util = "0.3.28"
 serde_json = "1.0.105"
+tower-http = { version = "0.4.3", features = ["trace"] }
+tower-request-id = "0.2.1"

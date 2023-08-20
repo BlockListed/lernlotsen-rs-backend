@@ -1,7 +1,6 @@
 use std::ops::Range;
 
-use axum::extract::{Query, State};
-use axum::Json;
+use axum::extract::{Json, Query, State};
 use axum::http::StatusCode;
 
 use bson::Uuid as BsonUuid;
@@ -12,44 +11,58 @@ use futures_util::StreamExt;
 use mongodb::Database;
 use serde::{Serialize, Deserialize};
 
+use tracing::error;
 use uuid::Uuid;
 
 use crate::db::collection_timeslots;
 use crate::db::model::{Student, TimeSlot, BsonTimeSlot};
 
-#[derive(Serialize, Deserialize)]
+use crate::api::util::prelude::*;
+
+#[derive(Deserialize, Debug)]
 pub struct TimeslotQuery {
 	id: Option<Uuid>,
 }
 
-pub async fn query(State(db): State<Database>, Query(q): Query<TimeslotQuery>) -> Result<Json<Vec<TimeSlot>>, (StatusCode, String)> {
+pub async fn query(State(db): State<Database>, Query(q): Query<TimeslotQuery>) -> WebResult<Vec<TimeSlot>, &'static str> {
 	let query = q.id.map(|x| {
 		bson::doc! {
 			"id": BsonUuid::from_uuid_1(x),
 		}
 	});
 
-	let r = tokio::spawn(async move {
+	spawn_in_current_span(async move {
 		let collection = collection_timeslots(&db).await;
 
-		collection.find(query, None).await
-	}).await.unwrap();
+		let r = collection.find(query, None).await;
 
-	let ret = match r {
-		Ok(x) => {
-			x
-				.filter_map(|i| async { i.ok() })
-				.map(|v| v.into())
-				.collect::<Vec<_>>()
-				.await
-		}
-		Err(e) => return Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
-	};
+		let ret = match r {
+			Ok(x) => {
+				x
+					.filter_map(|i| async {
+						if let Ok(x) = i {
+							Some(x)
+						} else {
+							error!("invalid data in database");
+							None
+						}
+					})
+					.map(|v| v.into())
+					.collect::<Vec<_>>()
+					.await
+			}
+			Err(e) => {
+				error!(%e, "encountered database error");
+	
+				return NotFine(StatusCode::INTERNAL_SERVER_ERROR, "database error")
+			},
+		};
 
-	Ok(Json(ret))
+		Fine(StatusCode::OK, ret)
+	}).await.unwrap()
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct TimeslotCreate {
 	students: Vec<Student>,
 	weekday: Weekday,
@@ -62,7 +75,7 @@ pub struct TimeslotCreateReturn {
 	id: Uuid,
 }
 
-pub async fn create(State(db): State<Database>, Json(r): Json<TimeslotCreate>) -> Result<Json<TimeslotCreateReturn>, (StatusCode, String)> {
+pub async fn create(State(db): State<Database>, Json(r): Json<TimeslotCreate>) -> WebResult<TimeslotCreateReturn, &'static str> {
 	let id = Uuid::new_v4();
 	let ts = BsonTimeSlot {
 		id: id.into(),
@@ -72,14 +85,18 @@ pub async fn create(State(db): State<Database>, Json(r): Json<TimeslotCreate>) -
 		timerange: Range { start: r.timerange.start.into(), end: r.timerange.end.into() },
 	};
 	
-	let r = tokio::spawn(async move {
+	let r = spawn_in_current_span(async move {
 		let collection = collection_timeslots(&db).await;
 
 		collection.insert_one(ts, None).await
 	}).await.unwrap();
 
 	match r {
-		Ok(_) => Ok(Json(TimeslotCreateReturn { id })),
-		Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
+		Ok(_) => Fine(StatusCode::OK, TimeslotCreateReturn { id }),
+		Err(e) => {
+			error!(%e, "encountered database error");
+
+			NotFine(StatusCode::INTERNAL_SERVER_ERROR, "database error")
+		}
 	}
 }
