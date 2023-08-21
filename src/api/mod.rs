@@ -7,7 +7,7 @@ use mongodb::Database;
 
 use tower_http::trace::TraceLayer;
 use tower_request_id::{RequestId, RequestIdLayer};
-use tracing::info_span;
+use tracing::{info, info_span};
 
 use crate::configuration::Config;
 
@@ -18,8 +18,9 @@ mod util;
 
 pub async fn run(db: Database, cfg: &Config) {
 	let app = Router::new()
-		.route("/timeslot", get(timeslot::query).post(timeslot::create))
+		.route("/timeslots", get(timeslot::query).post(timeslot::create))
 		.route("/entries", get(entry::query).post(entry::create))
+		.route("/entries/missing", get(entry::missing))
 		.with_state(db)
 		.layer(
 			TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
@@ -33,6 +34,8 @@ pub async fn run(db: Database, cfg: &Config) {
 			}),
 		)
 		.layer(RequestIdLayer);
+
+	info!(uri=%cfg.hosturl, "Starting server");
 
 	Server::bind(&cfg.hosturl)
 		.serve(app.into_make_service())

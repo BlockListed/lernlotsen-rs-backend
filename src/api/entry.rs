@@ -1,6 +1,7 @@
-use axum::extract::{Json, State};
+use axum::extract::{Json, State, Query};
 use axum::http::StatusCode;
 
+use chrono::{DateTime, Utc};
 use futures_util::StreamExt;
 use mongodb::Database;
 
@@ -10,10 +11,13 @@ use serde_json::{json, Value};
 use tracing::{debug, error};
 use uuid::Uuid;
 
-use crate::db::model::{BsonEntry, Entry, EntryState, Student};
+use crate::api::logic;
+use crate::db::model::{BsonEntry, Entry, EntryState};
 use crate::db::{collection_entries, collection_timeslots};
 
 use super::util::prelude::*;
+
+use super::logic::entries::verify_state;
 
 #[derive(Deserialize, Debug)]
 pub struct CreateEntry {
@@ -53,7 +57,7 @@ pub async fn create(
 		let entry = match verify_state(&r.state, &selected_timeslot.students) {
 			Ok(_) => BsonEntry {
 				index: r.index,
-				timeslot: selected_timeslot,
+				timeslot_id: selected_timeslot.id,
 				state: r.state,
 			},
 			Err(s) => {
@@ -97,27 +101,6 @@ pub async fn create(
 	}
 }
 
-fn verify_state(state: &EntryState, timeslot_students: &[Student]) -> Result<(), Vec<Student>> {
-	let mut invalid_students = Vec::new();
-
-	match state {
-		EntryState::Success { students } => {
-			for (k, _) in students {
-				if !timeslot_students.iter().any(|x| x == k) {
-					invalid_students.push(k.clone());
-				}
-			}
-
-			if invalid_students.is_empty() {
-				Ok(())
-			} else {
-				Err(invalid_students)
-			}
-		}
-		_ => Ok(()),
-	}
-}
-
 pub async fn query(State(db): State<Database>) -> WebResult<Vec<Entry>, &'static str> {
 	spawn_in_current_span(async move {
 		let entries = collection_entries(&db).await;
@@ -147,4 +130,61 @@ pub async fn query(State(db): State<Database>) -> WebResult<Vec<Entry>, &'static
 	})
 	.await
 	.unwrap()
+}
+
+#[derive(Deserialize)]
+pub struct MissingQuery {
+	timeslot_id: Uuid,
+}
+
+pub async fn missing(State(db): State<Database>, Query(q): Query<MissingQuery>) -> WebResult<Vec<DateTime<Utc>>, &'static str> {
+	spawn_in_current_span(async move {
+		let timeslots = collection_timeslots(&db).await;
+
+		let timeslot = match timeslots.find_one(Some(bson::doc! {
+			"id": q.timeslot_id,
+		}), None).await {
+			Ok(x) => {
+				match x {
+					Some(v) => v,
+					None => {
+						return NotFine(StatusCode::NOT_FOUND, "timeslot not found");
+					}
+				}
+			}
+			Err(e) => {
+				error!(%e, "encountered database error");
+				return NotFine(StatusCode::INTERNAL_SERVER_ERROR, "database error");
+			}
+		};
+
+		let entries = collection_entries(&db).await;
+
+		let timeslot_id = timeslot.id;
+
+		let required_entries = logic::entries::get_entries(&timeslot.into());
+
+		let mut missing = Vec::<DateTime<Utc>>::new();
+
+		// TODO
+		// Optimise this, so it doesn't perform this many queries.
+		for (i, d) in required_entries {
+			match entries.find_one(Some(bson::doc! {
+				"timeslot_id": timeslot_id,
+				"index": i,
+			}), None).await {
+				Ok(x) => {
+					if x.is_none() {
+						missing.push(d);
+					}
+				}
+				Err(e) => {
+					error!(%e, "encountered database error");
+					return NotFine(StatusCode::INTERNAL_SERVER_ERROR, "database error");
+				}
+			}
+		}
+
+		Fine(StatusCode::OK, missing)
+	}).await.unwrap()
 }

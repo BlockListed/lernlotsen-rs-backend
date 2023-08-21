@@ -1,11 +1,9 @@
 use std::ops::Range;
 
-use bson::DateTime as BsonDateTime;
 use bson::Uuid as BsonUuid;
 
+use chrono::NaiveDate;
 use chrono::NaiveTime;
-use chrono::Weekday;
-use chrono::{DateTime, Utc};
 
 use serde::{Deserialize, Serialize};
 
@@ -25,7 +23,6 @@ pub enum StudentStatus {
 pub struct BaseTimeSlot<UUID, Date> {
 	pub id: UUID,
 	pub students: Vec<Student>,
-	pub weekday: Weekday,
 	pub time: Range<NaiveTime>,
 	pub timerange: Range<Date>,
 }
@@ -42,24 +39,23 @@ pub enum EntryState {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct BaseEntry<UUID, Date> {
+pub struct BaseEntry<UUID> {
 	pub index: u32,
-	pub timeslot: BaseTimeSlot<UUID, Date>,
+	pub timeslot_id: UUID,
 	pub state: EntryState,
 }
 
-pub type TimeSlot = BaseTimeSlot<uuid::Uuid, DateTime<Utc>>;
-pub type Entry = BaseEntry<uuid::Uuid, DateTime<Utc>>;
+pub type TimeSlot = BaseTimeSlot<uuid::Uuid, NaiveDate>;
+pub type Entry = BaseEntry<uuid::Uuid>;
 
-pub type BsonTimeSlot = BaseTimeSlot<BsonUuid, BsonDateTime>;
-pub type BsonEntry = BaseEntry<BsonUuid, BsonDateTime>;
+pub type BsonTimeSlot = BaseTimeSlot<BsonUuid, NaiveDate>;
+pub type BsonEntry = BaseEntry<BsonUuid>;
 
 impl From<BsonTimeSlot> for TimeSlot {
 	fn from(v: BsonTimeSlot) -> Self {
 		Self {
 			id: v.id.into(),
 			students: v.students,
-			weekday: v.weekday,
 			time: v.time,
 			timerange: Range {
 				start: v.timerange.start.into(),
@@ -73,7 +69,7 @@ impl From<BsonEntry> for Entry {
 	fn from(v: BsonEntry) -> Self {
 		Self {
 			index: v.index,
-			timeslot: v.timeslot.into(),
+			timeslot_id: v.timeslot_id.into(),
 			state: v.state,
 		}
 	}

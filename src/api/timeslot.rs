@@ -5,7 +5,7 @@ use axum::http::StatusCode;
 
 use bson::Uuid as BsonUuid;
 
-use chrono::{DateTime, NaiveTime, Utc, Weekday};
+use chrono::{NaiveDate, NaiveTime, Weekday, Datelike};
 
 use futures_util::StreamExt;
 use mongodb::Database;
@@ -71,7 +71,7 @@ pub struct TimeslotCreate {
 	students: Vec<Student>,
 	weekday: Weekday,
 	time: Range<NaiveTime>,
-	timerange: Range<DateTime<Utc>>,
+	timerange: Range<NaiveDate>,
 }
 
 #[derive(Serialize)]
@@ -83,11 +83,14 @@ pub async fn create(
 	State(db): State<Database>,
 	Json(r): Json<TimeslotCreate>,
 ) -> WebResult<TimeslotCreateReturn, &'static str> {
+	if r.timerange.start.weekday() != r.weekday {
+		return NotFine(StatusCode::UNPROCESSABLE_ENTITY, "timerange start is the first day.");
+	}
+
 	let id = Uuid::new_v4();
 	let ts = BsonTimeSlot {
 		id: id.into(),
 		students: r.students,
-		weekday: r.weekday,
 		time: r.time,
 		timerange: Range {
 			start: r.timerange.start.into(),
