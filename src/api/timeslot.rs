@@ -60,6 +60,7 @@ pub async fn query(
 #[derive(Deserialize, Debug)]
 pub struct TimeslotCreate {
 	students: Vec<Student>,
+	subject: String,
 	weekday: Weekday,
 	time: Range<NaiveTime>,
 	timerange: Range<NaiveDate>,
@@ -82,6 +83,7 @@ pub async fn create(
 		let id = Uuid::new_v4();
 		let ts = BsonTimeSlot {
 			id: id.into(),
+			subject: r.subject,
 			students: r.students,
 			time: r.time,
 			timerange: r.timerange,

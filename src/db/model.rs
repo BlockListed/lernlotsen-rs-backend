@@ -23,6 +23,7 @@ pub enum StudentStatus {
 #[derive(Serialize, Deserialize)]
 pub struct BaseTimeSlot<UUID, Date> {
 	pub id: UUID,
+	pub subject: String,
 	pub students: Vec<Student>,
 	pub time: Range<NaiveTime>,
 	pub timerange: Range<Date>,
@@ -58,6 +59,7 @@ impl From<BsonTimeSlot> for TimeSlot {
 		Self {
 			id: v.id.into(),
 			students: v.students,
+			subject: v.subject,
 			time: v.time,
 			timerange: v.timerange,
 			weekday: v.weekday,
