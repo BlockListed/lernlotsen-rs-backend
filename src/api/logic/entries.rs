@@ -1,11 +1,19 @@
 use std::cmp::min;
 
+use std::collections::HashMap;
 use std::ops::Range;
 
+use axum::http::StatusCode;
 use chrono::{NaiveDate, NaiveTime};
 use chrono::{DateTime, Utc};
+use futures_util::StreamExt;
+use mongodb::Database;
 
-use crate::db::model::{EntryState, Student, TimeSlot};
+use tracing::error;
+
+use crate::api::util::prelude::*;
+use crate::db::collection_entries;
+use crate::db::model::{EntryState, Student, TimeSlot, BsonTimeSlot};
 
 pub fn verify_state(state: &EntryState, timeslot_students: &[Student]) -> Result<(), Vec<Student>> {
 	let mut invalid_students = Vec::new();
@@ -51,7 +59,7 @@ pub fn get_entries(ts: &TimeSlot) -> EntriesForTimeslot {
 }
 
 impl Iterator for EntriesForTimeslot {
-	type Item = (u32, DateTime<Utc>);
+	type Item = DateTime<Utc>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		let days_from_start = 7 * self.index;
@@ -64,10 +72,48 @@ impl Iterator for EntriesForTimeslot {
 			return None;
 		}
 
-		let ret = self.index;
-
 		self.index += 1;
 	
-		Some((ret, new_date.and_time(self.time).and_utc()))
+		Some(new_date.and_time(self.time).and_utc())
 	}
+}
+
+pub async fn missing_entries(timeslot: BsonTimeSlot, db: &Database) -> WebResult<Vec<(usize, DateTime<Utc>)>, &'static str> {
+	let entries = collection_entries(db).await;
+
+	let timeslot_id = timeslot.id;
+
+	let mut required_entries = get_entries(&timeslot.into()).enumerate().collect::<HashMap<_, _>>();
+	
+	let required_indexes = required_entries.keys().map(|x| *x as i32).collect::<Vec<_>>();
+
+	let found_indexes = crate::handle_db!(entries.find(bson::doc! {
+		"timeslot_id": timeslot_id,
+		"index": {
+			"$in": required_indexes,
+		}
+	}, None).await, "database error")
+		.filter_map(|v| async {
+			match v {
+				Ok(x) => {
+					Some(x.index)
+				}
+				Err(e) => {
+					error!(%e, "invalid data in database");
+					None
+				}
+			}
+		})
+		.collect::<Vec<_>>().await;
+
+	for i in found_indexes {
+		required_entries.remove(&(i as usize));
+	}
+
+	// All found entries have already been removed.
+	let mut missing_entries = required_entries.into_iter().collect::<Vec<_>>();
+
+	missing_entries.sort_unstable_by_key(|x| x.0);
+
+	Fine(StatusCode::OK, missing_entries)
 }

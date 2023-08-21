@@ -17,7 +17,8 @@ use crate::db::{collection_entries, collection_timeslots};
 
 use super::util::prelude::*;
 
-use super::logic::entries::verify_state;
+use logic::entries::verify_state;
+use logic::entries::missing_entries;
 
 #[derive(Deserialize, Debug)]
 pub struct CreateEntry {
@@ -119,7 +120,7 @@ pub struct MissingQuery {
 	timeslot_id: Uuid,
 }
 
-pub async fn missing(State(db): State<Database>, Query(q): Query<MissingQuery>) -> WebResult<Vec<DateTime<Utc>>, &'static str> {
+pub async fn missing(State(db): State<Database>, Query(q): Query<MissingQuery>) -> WebResult<Vec<(usize, DateTime<Utc>)>, &'static str> {
 	spawn_in_current_span(async move {
 		let timeslots = collection_timeslots(&db).await;
 
@@ -132,27 +133,6 @@ pub async fn missing(State(db): State<Database>, Query(q): Query<MissingQuery>) 
 			}
 		};
 
-		let entries = collection_entries(&db).await;
-
-		let timeslot_id = timeslot.id;
-
-		let required_entries = logic::entries::get_entries(&timeslot.into());
-
-		let mut missing = Vec::<DateTime<Utc>>::new();
-
-		// TODO
-		// Optimise this, so it doesn't perform this many queries.
-		for (i, d) in required_entries {
-			let x = crate::handle_db!(entries.find_one(Some(bson::doc! {
-				"timeslot_id": timeslot_id,
-				"index": i,
-			}), None).await, "database error");
-
-			if x.is_none() {
-				missing.push(d);
-			}
-		}
-
-		Fine(StatusCode::OK, missing)
+		missing_entries(timeslot, &db).await
 	}).await.unwrap()
 }
