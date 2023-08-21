@@ -30,7 +30,7 @@ pub async fn create(
 	State(db): State<Database>,
 	Json(r): Json<CreateEntry>,
 ) -> WebResult<&'static str, Value> {
-	let r = spawn_in_current_span(async move {
+	spawn_in_current_span(async move {
 		let timeslots = collection_timeslots(&db).await;
 
 		let selected_timeslot = match crate::handle_db!(timeslots
@@ -84,15 +84,10 @@ pub async fn create(
 			}
 		};
 
-		Fine(StatusCode::OK, ())
+		Fine(StatusCode::CREATED, "created entry")
 	})
 	.await
-	.unwrap();
-
-	match r {
-		Fine(..) => Fine(StatusCode::CREATED, "created entry"),
-		NotFine(c, e) => NotFine(c, e),
-	}
+	.unwrap()
 }
 
 pub async fn query(State(db): State<Database>) -> WebResult<Vec<Entry>, &'static str> {

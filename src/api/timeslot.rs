@@ -74,33 +74,26 @@ pub async fn create(
 	State(db): State<Database>,
 	Json(r): Json<TimeslotCreate>,
 ) -> WebResult<TimeslotCreateReturn, &'static str> {
-	if r.timerange.start.weekday() != r.weekday {
-		return NotFine(StatusCode::UNPROCESSABLE_ENTITY, "timerange start is the first day.");
-	}
+	spawn_in_current_span(async move {
+		if r.timerange.start.weekday() != r.weekday {
+			return NotFine(StatusCode::UNPROCESSABLE_ENTITY, "timerange start is the first day.");
+		}
+	
+		let id = Uuid::new_v4();
+		let ts = BsonTimeSlot {
+			id: id.into(),
+			students: r.students,
+			time: r.time,
+			timerange: r.timerange,
+			weekday: r.weekday,
+		};
 
-	let id = Uuid::new_v4();
-	let ts = BsonTimeSlot {
-		id: id.into(),
-		students: r.students,
-		time: r.time,
-		timerange: Range {
-			start: r.timerange.start.into(),
-			end: r.timerange.end.into(),
-		},
-	};
-
-	let r = spawn_in_current_span(async move {
 		let collection = collection_timeslots(&db).await;
 
 		crate::handle_db!(collection.insert_one(ts, None).await, "database error");
 
-		Fine(StatusCode::OK, ())
+		Fine(StatusCode::CREATED, TimeslotCreateReturn { id })
 	})
 	.await
-	.unwrap();
-
-	match r {
-		Fine(c, _) => Fine(c, TimeslotCreateReturn { id }),
-		NotFine(c, m) => NotFine(c, m),
-	}
+	.unwrap()
 }
