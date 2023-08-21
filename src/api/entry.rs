@@ -33,24 +33,18 @@ pub async fn create(
 	let r = spawn_in_current_span(async move {
 		let timeslots = collection_timeslots(&db).await;
 
-		let selected_timeslot = match timeslots
+		let selected_timeslot = match crate::handle_db!(timeslots
 			.find_one(
 				bson::doc! {
 					"id": r.timeslot_id,
 				},
 				None,
 			)
-			.await
+			.await, json!("database error"))
 		{
-			Ok(x) => match x {
-				Some(x) => x,
-				None => {
-					return NotFine(StatusCode::NOT_FOUND, json!("timeslot not found"));
-				}
-			},
-			Err(e) => {
-				error!(%e, "encountered database error");
-				return NotFine(StatusCode::INTERNAL_SERVER_ERROR, json!("database error"));
+			Some(x) => x,
+			None => {
+				return NotFine(StatusCode::NOT_FOUND, json!("timeslot not found"));
 			}
 		};
 
@@ -105,26 +99,19 @@ pub async fn query(State(db): State<Database>) -> WebResult<Vec<Entry>, &'static
 	spawn_in_current_span(async move {
 		let entries = collection_entries(&db).await;
 
-		let res: Vec<Entry> = match entries.find(None, None).await {
-			Ok(c) => {
-				c.filter_map(|v| async {
-					match v {
-						Ok(x) => Some(x),
-						Err(e) => {
-							error!(%e, "invalid data in database");
-							None
-						}
+		let res: Vec<Entry> = crate::handle_db!(entries.find(None, None).await, "database error")
+			.filter_map(|v| async {
+				match v {
+					Ok(x) => Some(x),
+					Err(e) => {
+						error!(%e, "invalid data in database");
+						None
 					}
-				})
-				.map(|v| v.into())
-				.collect::<Vec<_>>()
-				.await
-			}
-			Err(e) => {
-				error!(%e, "encountered database error");
-				return NotFine(StatusCode::INTERNAL_SERVER_ERROR, "database error");
-			}
-		};
+				}
+			})
+			.map(|v| v.into())
+			.collect::<Vec<_>>()
+			.await;
 
 		Fine(StatusCode::OK, res)
 	})
@@ -141,20 +128,12 @@ pub async fn missing(State(db): State<Database>, Query(q): Query<MissingQuery>) 
 	spawn_in_current_span(async move {
 		let timeslots = collection_timeslots(&db).await;
 
-		let timeslot = match timeslots.find_one(Some(bson::doc! {
+		let timeslot = match crate::handle_db!(timeslots.find_one(Some(bson::doc! {
 			"id": q.timeslot_id,
-		}), None).await {
-			Ok(x) => {
-				match x {
-					Some(v) => v,
-					None => {
-						return NotFine(StatusCode::NOT_FOUND, "timeslot not found");
-					}
-				}
-			}
-			Err(e) => {
-				error!(%e, "encountered database error");
-				return NotFine(StatusCode::INTERNAL_SERVER_ERROR, "database error");
+		}), None).await, "database error") {
+			Some(v) => v,
+			None => {
+				return NotFine(StatusCode::NOT_FOUND, "timeslot not found");
 			}
 		};
 
@@ -169,19 +148,13 @@ pub async fn missing(State(db): State<Database>, Query(q): Query<MissingQuery>) 
 		// TODO
 		// Optimise this, so it doesn't perform this many queries.
 		for (i, d) in required_entries {
-			match entries.find_one(Some(bson::doc! {
+			let x = crate::handle_db!(entries.find_one(Some(bson::doc! {
 				"timeslot_id": timeslot_id,
 				"index": i,
-			}), None).await {
-				Ok(x) => {
-					if x.is_none() {
-						missing.push(d);
-					}
-				}
-				Err(e) => {
-					error!(%e, "encountered database error");
-					return NotFine(StatusCode::INTERNAL_SERVER_ERROR, "database error");
-				}
+			}), None).await, "database error");
+
+			if x.is_none() {
+				missing.push(d);
 			}
 		}
 

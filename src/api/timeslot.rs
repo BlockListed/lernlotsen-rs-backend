@@ -37,11 +37,9 @@ pub async fn query(
 	spawn_in_current_span(async move {
 		let collection = collection_timeslots(&db).await;
 
-		let r = collection.find(query, None).await;
+		let r = crate::handle_db!(collection.find(query, None).await, "database error");
 
-		let ret = match r {
-			Ok(x) => {
-				x.filter_map(|i| async {
+		let ret = r.filter_map(|i| async {
 					if let Ok(x) = i {
 						Some(x)
 					} else {
@@ -51,14 +49,7 @@ pub async fn query(
 				})
 				.map(|v| v.into())
 				.collect::<Vec<_>>()
-				.await
-			}
-			Err(e) => {
-				error!(%e, "encountered database error");
-
-				return NotFine(StatusCode::INTERNAL_SERVER_ERROR, "database error");
-			}
-		};
+				.await;
 
 		Fine(StatusCode::OK, ret)
 	})
@@ -101,17 +92,15 @@ pub async fn create(
 	let r = spawn_in_current_span(async move {
 		let collection = collection_timeslots(&db).await;
 
-		collection.insert_one(ts, None).await
+		crate::handle_db!(collection.insert_one(ts, None).await, "database error");
+
+		Fine(StatusCode::OK, ())
 	})
 	.await
 	.unwrap();
 
 	match r {
-		Ok(_) => Fine(StatusCode::OK, TimeslotCreateReturn { id }),
-		Err(e) => {
-			error!(%e, "encountered database error");
-
-			NotFine(StatusCode::INTERNAL_SERVER_ERROR, "database error")
-		}
+		Fine(c, _) => Fine(c, TimeslotCreateReturn { id }),
+		NotFine(c, m) => NotFine(c, m),
 	}
 }

@@ -51,3 +51,16 @@ pub mod prelude {
 
 	pub use super::spawn_in_current_span;
 }
+
+#[macro_export]
+macro_rules! handle_db {
+	($e:expr, $err:expr) => {
+		match $e {
+			Ok(x) => x,
+			Err(e) => {
+				::tracing::error!(%e, "encountered database error");
+				return $crate::api::util::WebResult::NotFine(::axum::http::StatusCode::INTERNAL_SERVER_ERROR, $err);
+			}
+		}
+	};
+}

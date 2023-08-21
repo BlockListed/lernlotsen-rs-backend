@@ -14,6 +14,7 @@ use crate::configuration::Config;
 mod entry;
 mod logic;
 mod timeslot;
+#[macro_use]
 mod util;
 
 pub async fn run(db: Database, cfg: &Config) {
