@@ -13,7 +13,7 @@ use tracing::{Instrument, Span};
 #[must_use]
 pub enum WebResult<M: Serialize, E: Serialize> {
 	Fine(StatusCode, M),
-	NotFine(StatusCode, E)
+	NotFine(StatusCode, E),
 }
 
 #[derive(Serialize)]
@@ -26,7 +26,11 @@ struct Error<T> {
 	error: T,
 }
 
-impl<M, E> IntoResponse for WebResult<M, E> where M: Serialize, E: Serialize {
+impl<M, E> IntoResponse for WebResult<M, E>
+where
+	M: Serialize,
+	E: Serialize,
+{
 	fn into_response(self) -> axum::response::Response {
 		match self {
 			Self::Fine(c, m) => (c, Json(Msg { msg: m })).into_response(),
@@ -35,7 +39,9 @@ impl<M, E> IntoResponse for WebResult<M, E> where M: Serialize, E: Serialize {
 	}
 }
 
-pub fn spawn_in_current_span<T: Send + 'static>(f: impl Future<Output = T> + Send + 'static) -> JoinHandle<T> {
+pub fn spawn_in_current_span<T: Send + 'static>(
+	f: impl Future<Output = T> + Send + 'static,
+) -> JoinHandle<T> {
 	tokio::spawn(f.instrument(Span::current()))
 }
 

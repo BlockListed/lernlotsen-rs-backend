@@ -9,7 +9,10 @@ async fn main() {
 	let _ = dotenvy::dotenv();
 
 	tracing_subscriber::fmt()
-		.with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info,tower_http=debug".into()))
+		.with_env_filter(
+			tracing_subscriber::EnvFilter::try_from_default_env()
+				.unwrap_or_else(|_| "info,tower_http=debug".into()),
+		)
 		.init();
 
 	let cfg_builder = config::Config::builder()

@@ -5,13 +5,13 @@ use futures_util::StreamExt;
 use mongodb::Database;
 
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use tracing::{debug, error};
 use uuid::Uuid;
 
-use crate::db::{collection_timeslots, collection_entries};
-use crate::db::model::{EntryState, Student, BsonEntry, Entry};
+use crate::db::model::{BsonEntry, Entry, EntryState, Student};
+use crate::db::{collection_entries, collection_timeslots};
 
 use super::util::prelude::*;
 
@@ -22,21 +22,28 @@ pub struct CreateEntry {
 	index: u32,
 }
 
-pub async fn create(State(db): State<Database>, Json(r): Json<CreateEntry>) -> WebResult<&'static str, Value> {
+pub async fn create(
+	State(db): State<Database>,
+	Json(r): Json<CreateEntry>,
+) -> WebResult<&'static str, Value> {
 	let r = spawn_in_current_span(async move {
 		let timeslots = collection_timeslots(&db).await;
 
-		let selected_timeslot = match timeslots.find_one(bson::doc! {
-			"id": r.timeslot_id,
-		}, None).await {
-			Ok(x) => {
-				match x {
-					Some(x) => x,
-					None => {
-						return NotFine(StatusCode::NOT_FOUND, json!("timeslot not found"));
-					}
+		let selected_timeslot = match timeslots
+			.find_one(
+				bson::doc! {
+					"id": r.timeslot_id,
+				},
+				None,
+			)
+			.await
+		{
+			Ok(x) => match x {
+				Some(x) => x,
+				None => {
+					return NotFine(StatusCode::NOT_FOUND, json!("timeslot not found"));
 				}
-			}
+			},
 			Err(e) => {
 				error!(%e, "encountered database error");
 				return NotFine(StatusCode::INTERNAL_SERVER_ERROR, json!("database error"));
@@ -44,20 +51,18 @@ pub async fn create(State(db): State<Database>, Json(r): Json<CreateEntry>) -> W
 		};
 
 		let entry = match verify_state(&r.state, &selected_timeslot.students) {
-			Ok(_) => {
-				BsonEntry {
-					index: r.index,
-					timeslot: selected_timeslot,
-					state: r.state
-				}
-			}
+			Ok(_) => BsonEntry {
+				index: r.index,
+				timeslot: selected_timeslot,
+				state: r.state,
+			},
 			Err(s) => {
 				debug!("request contained invalid students");
 				return NotFine(
 					StatusCode::UNPROCESSABLE_ENTITY,
 					json!({
 						"invalid_students": s,
-					})
+					}),
 				);
 			}
 		};
@@ -65,10 +70,10 @@ pub async fn create(State(db): State<Database>, Json(r): Json<CreateEntry>) -> W
 		let entries = collection_entries(&db).await;
 
 		if let Err(e) = entries.insert_one(entry, None).await {
-			use mongodb::error::{ErrorKind, WriteFailure, WriteError};
+			use mongodb::error::{ErrorKind, WriteError, WriteFailure};
 
 			match *e.kind {
-				ErrorKind::Write(WriteFailure::WriteError(WriteError {code: 11000, ..})) => {
+				ErrorKind::Write(WriteFailure::WriteError(WriteError { code: 11000, .. })) => {
 					debug!("Duplicated entry.");
 
 					return NotFine(StatusCode::CONFLICT, json!("duplicate index"));
@@ -82,14 +87,14 @@ pub async fn create(State(db): State<Database>, Json(r): Json<CreateEntry>) -> W
 		};
 
 		Fine(StatusCode::OK, ())
-	}).await.unwrap();
+	})
+	.await
+	.unwrap();
 
 	match r {
 		Fine(..) => Fine(StatusCode::CREATED, "created entry"),
 		NotFine(c, e) => NotFine(c, e),
 	}
-
-	
 }
 
 fn verify_state(state: &EntryState, timeslot_students: &[Student]) -> Result<(), Vec<Student>> {
@@ -109,7 +114,7 @@ fn verify_state(state: &EntryState, timeslot_students: &[Student]) -> Result<(),
 				Err(invalid_students)
 			}
 		}
-		_ => Ok(())
+		_ => Ok(()),
 	}
 }
 
@@ -119,26 +124,27 @@ pub async fn query(State(db): State<Database>) -> WebResult<Vec<Entry>, &'static
 
 		let res: Vec<Entry> = match entries.find(None, None).await {
 			Ok(c) => {
-				c
-					.filter_map(|v| async {
-						match v {
-							Ok(x) => Some(x),
-							Err(e) => {
-								error!(%e, "invalid data in database");
-								None
-							}
+				c.filter_map(|v| async {
+					match v {
+						Ok(x) => Some(x),
+						Err(e) => {
+							error!(%e, "invalid data in database");
+							None
 						}
-					})
-					.map(|v| v.into())
-					.collect::<Vec<_>>()
-					.await
+					}
+				})
+				.map(|v| v.into())
+				.collect::<Vec<_>>()
+				.await
 			}
 			Err(e) => {
 				error!(%e, "encountered database error");
-				return NotFine(StatusCode::INTERNAL_SERVER_ERROR, "database error")
+				return NotFine(StatusCode::INTERNAL_SERVER_ERROR, "database error");
 			}
 		};
 
 		Fine(StatusCode::OK, res)
-	}).await.unwrap()
+	})
+	.await
+	.unwrap()
 }

@@ -3,9 +3,9 @@ use std::ops::Range;
 use bson::DateTime as BsonDateTime;
 use bson::Uuid as BsonUuid;
 
-use chrono::{DateTime, Utc};
 use chrono::NaiveTime;
 use chrono::Weekday;
+use chrono::{DateTime, Utc};
 
 use serde::{Deserialize, Serialize};
 
@@ -32,7 +32,9 @@ pub struct BaseTimeSlot<UUID, Date> {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum EntryState {
-	Success { students: Vec<(Student, StudentStatus)> },
+	Success {
+		students: Vec<(Student, StudentStatus)>,
+	},
 	CanceledByStudents,
 	CanceledByTutor,
 	Holidays,
@@ -59,7 +61,10 @@ impl From<BsonTimeSlot> for TimeSlot {
 			students: v.students,
 			weekday: v.weekday,
 			time: v.time,
-			timerange: Range { start: v.timerange.start.into(), end: v.timerange.end.into() },
+			timerange: Range {
+				start: v.timerange.start.into(),
+				end: v.timerange.end.into(),
+			},
 		}
 	}
 }

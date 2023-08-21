@@ -2,8 +2,8 @@ use std::ops::Range;
 
 use std::cmp::max;
 
-use chrono::{DateTime, Utc};
 use chrono::Weekday;
+use chrono::{DateTime, Utc};
 
 use crate::db::model::TimeSlot;
 
@@ -21,7 +21,11 @@ pub fn get_entries(ts: &TimeSlot) -> EntriesForTimeslot {
 
 	let range = Range { start, end };
 
-	EntriesForTimeslot { range, weekday: ts.weekday, index: 0 }
+	EntriesForTimeslot {
+		range,
+		weekday: ts.weekday,
+		index: 0,
+	}
 }
 
 impl Iterator for EntriesForTimeslot {

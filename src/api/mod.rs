@@ -11,24 +11,27 @@ use tracing::info_span;
 
 use crate::configuration::Config;
 
-mod timeslot;
 mod entry;
-mod util;
 mod logic;
+mod timeslot;
+mod util;
 
 pub async fn run(db: Database, cfg: &Config) {
 	let app = Router::new()
 		.route("/timeslot", get(timeslot::query).post(timeslot::create))
 		.route("/entries", get(entry::query).post(entry::create))
 		.with_state(db)
-		.layer(TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
-			let request_id = request.extensions()
-				.get::<RequestId>()
-				.map(ToString::to_string)
-				.unwrap_or_else(|| "unknown".into());
+		.layer(
+			TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
+				let request_id = request
+					.extensions()
+					.get::<RequestId>()
+					.map(ToString::to_string)
+					.unwrap_or_else(|| "unknown".into());
 
-			info_span!("request", id = %request_id, method = %request.method(), uri = %request.uri())
-		}))
+				info_span!("request", id = %request_id, method = %request.method(), uri = %request.uri())
+			}),
+		)
 		.layer(RequestIdLayer);
 
 	Server::bind(&cfg.hosturl)
