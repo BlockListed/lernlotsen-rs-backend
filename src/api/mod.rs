@@ -20,8 +20,8 @@ mod util;
 pub async fn run(db: Database, cfg: &Config) {
 	let app = Router::new()
 		.route("/timeslots", get(timeslot::query).post(timeslot::create))
-		.route("/entries", get(entry::query).post(entry::create))
-		.route("/entries/missing", get(entry::missing))
+		.route("/timeslots/:id/entries", get(entry::query).post(entry::create))
+		.route("/timeslots/:id/entries/missing", get(entry::missing))
 		.with_state(db)
 		.layer(
 			TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
