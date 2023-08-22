@@ -1,10 +1,7 @@
-use std::cmp::min;
-
 use std::collections::HashMap;
-use std::ops::Range;
 
 use axum::http::StatusCode;
-use chrono::{NaiveDate, NaiveTime};
+use chrono::NaiveDate;
 use chrono::{DateTime, Utc};
 use futures_util::StreamExt;
 use mongodb::Database;
@@ -37,45 +34,45 @@ pub fn verify_state(state: &EntryState, timeslot_students: &[Student]) -> Result
 }
 
 
-pub struct EntriesForTimeslot {
-	range: Range<NaiveDate>,
-	time: NaiveTime,
-	index: u32,
+pub struct EntriesForTimeslot<'a> {
+	timeslot: &'a TimeSlot,
+	until: NaiveDate,
+	index: u64,
 }
 
-pub fn get_entries(ts: &TimeSlot) -> EntriesForTimeslot {
+pub fn get_entries(timeslot: &TimeSlot) -> EntriesForTimeslot {
 	let now = Utc::now().date_naive();
 
-	let start = ts.timerange.start;
-	let end = min(now, ts.timerange.end);
-
-	let range = Range { start, end };
-
 	EntriesForTimeslot {
-		range,
-		time: ts.time.start,
+		timeslot,
+		until: now,
 		index: 0,
 	}
 }
 
-impl Iterator for EntriesForTimeslot {
+impl<'a> Iterator for EntriesForTimeslot<'a> {
 	type Item = DateTime<Utc>;
 
 	fn next(&mut self) -> Option<Self::Item> {
-		let days_from_start = 7 * self.index;
-
-		let days_from_start = chrono::Days::new(days_from_start.into());
-
-		let new_date = self.range.start.checked_add_days(days_from_start)?;
-
-		if new_date > self.range.end {
-			return None;
-		}
+		let date = get_time_from_index_and_timeslot(self.timeslot, self.index)
+			.and_then(|x| if x.date_naive() > self.until { Some(x) } else { None })?;
 
 		self.index += 1;
 	
-		Some(new_date.and_time(self.time).and_utc())
+		Some(date)
 	}
+}
+
+pub fn get_time_from_index_and_timeslot(timeslot: &TimeSlot, index: u64) -> Option<DateTime<Utc>> {
+	let days_from_start = chrono::Days::new(7 * index);
+
+	let new_date = timeslot.timerange.start.checked_add_days(days_from_start)?;
+
+	if new_date > timeslot.timerange.end {
+		return None;
+	}
+
+	Some(new_date.and_time(timeslot.time.start).and_utc())
 }
 
 pub async fn missing_entries(timeslot: BsonTimeSlot, db: &Database) -> WebResult<Vec<(usize, DateTime<Utc>)>, &'static str> {

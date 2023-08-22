@@ -1,4 +1,4 @@
-use axum::extract::{Json, State, Query};
+use axum::extract::{Json, State, Path};
 use axum::http::StatusCode;
 
 use chrono::{DateTime, Utc};
@@ -12,7 +12,8 @@ use tracing::{debug, error};
 use uuid::Uuid;
 
 use crate::api::logic;
-use crate::db::model::{BsonEntry, Entry, EntryState};
+use crate::api::logic::entries::get_time_from_index_and_timeslot;
+use crate::db::model::{BsonEntry, Entry, EntryState, TimeSlot};
 use crate::db::{collection_entries, collection_timeslots};
 
 use super::util::prelude::*;
@@ -22,13 +23,13 @@ use logic::entries::missing_entries;
 
 #[derive(Deserialize, Debug)]
 pub struct CreateEntry {
-	timeslot_id: Uuid,
 	state: EntryState,
 	index: u32,
 }
 
 pub async fn create(
 	State(db): State<Database>,
+	Path(q): Path<TimeSlotQuery>,
 	Json(r): Json<CreateEntry>,
 ) -> WebResult<&'static str, Value> {
 	spawn_in_current_span(async move {
@@ -37,7 +38,7 @@ pub async fn create(
 		let selected_timeslot = match crate::handle_db!(timeslots
 			.find_one(
 				bson::doc! {
-					"id": r.timeslot_id,
+					"timeslot_id": q.id,
 				},
 				None,
 			)
@@ -91,11 +92,29 @@ pub async fn create(
 	.unwrap()
 }
 
-pub async fn query(State(db): State<Database>) -> WebResult<Vec<Entry>, &'static str> {
+#[derive(Deserialize)]
+pub struct TimeSlotQuery {
+	id: Uuid,
+}
+
+pub async fn query(State(db): State<Database>, Path(q): Path<TimeSlotQuery>) -> WebResult<Vec<(Entry, DateTime<Utc>)>, &'static str> {
 	spawn_in_current_span(async move {
+		let timeslots = collection_timeslots(&db).await;
+
+		let timeslot: TimeSlot = match crate::handle_db!(timeslots.find_one(bson::doc! {
+			"id": q.id,
+		}, None).await, "database error") {
+			Some(x) => x.into(),
+			None => {
+				return NotFine(StatusCode::NOT_FOUND, "timeslot not found");
+			}
+		};
+
 		let entries = collection_entries(&db).await;
 
-		let res: Vec<Entry> = crate::handle_db!(entries.find(None, None).await, "database error")
+		let res: Vec<_> = crate::handle_db!(entries.find(bson::doc! {
+			"timeslot_id": q.id,
+		}, None).await, "database error")
 			.filter_map(|v| async {
 				match v {
 					Ok(x) => Some(x),
@@ -105,7 +124,15 @@ pub async fn query(State(db): State<Database>) -> WebResult<Vec<Entry>, &'static
 					}
 				}
 			})
-			.map(|v| v.into())
+			.filter_map(|v| async {
+				let entry: Entry = v.into();
+				let Some(time) = get_time_from_index_and_timeslot(&timeslot, entry.index as u64) else {
+					error!(timeslot=%entry.timeslot_id, index=%entry.index, "date of entry in database overflows the chrono limits");
+					return None;
+				};
+
+				Some((entry, time))
+			})
 			.collect::<Vec<_>>()
 			.await;
 
@@ -115,17 +142,14 @@ pub async fn query(State(db): State<Database>) -> WebResult<Vec<Entry>, &'static
 	.unwrap()
 }
 
-#[derive(Deserialize)]
-pub struct MissingQuery {
-	timeslot_id: Uuid,
-}
 
-pub async fn missing(State(db): State<Database>, Query(q): Query<MissingQuery>) -> WebResult<Vec<(usize, DateTime<Utc>)>, &'static str> {
+
+pub async fn missing(State(db): State<Database>, Path(q): Path<TimeSlotQuery>) -> WebResult<Vec<(usize, DateTime<Utc>)>, &'static str> {
 	spawn_in_current_span(async move {
 		let timeslots = collection_timeslots(&db).await;
 
 		let timeslot = match crate::handle_db!(timeslots.find_one(Some(bson::doc! {
-			"id": q.timeslot_id,
+			"id": q.id,
 		}), None).await, "database error") {
 			Some(v) => v,
 			None => {
