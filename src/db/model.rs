@@ -37,6 +37,7 @@ pub enum EntryState {
 		students: Vec<(Student, StudentStatus)>,
 	},
 	CancelledByStudents,
+	StudentsMissing,
 	CancelledByTutor,
 	Holidays,
 	Other,
