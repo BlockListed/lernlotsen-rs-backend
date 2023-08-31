@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use futures_util::StreamExt;
 use mongodb::Database;
 
-use tracing::error;
+use tracing::{error, debug, trace};
 
 use crate::api::util::prelude::*;
 use crate::db::collection_entries;
@@ -43,6 +43,8 @@ pub struct EntriesForTimeslot<'a> {
 pub fn get_entries(timeslot: &TimeSlot) -> EntriesForTimeslot {
 	let now = Utc::now().date_naive();
 
+	trace!(until=%now, "calculating missing entries");
+
 	EntriesForTimeslot {
 		timeslot,
 		until: now,
@@ -54,8 +56,16 @@ impl<'a> Iterator for EntriesForTimeslot<'a> {
 	type Item = DateTime<Utc>;
 
 	fn next(&mut self) -> Option<Self::Item> {
-		let date = get_time_from_index_and_timeslot(self.timeslot, self.index)
-			.and_then(|x| if x.date_naive() > self.until { Some(x) } else { None })?;
+		let date_opt = get_time_from_index_and_timeslot(self.timeslot, self.index)
+			.and_then(|x| if x.date_naive() < self.until { Some(x) } else { None });
+
+		let date = match date_opt {
+			Some(d) => d,
+			None => {
+				trace!(index=self.index, "missing entry iterator finished");
+				return None;
+			}
+		};
 
 		self.index += 1;
 	
@@ -81,6 +91,8 @@ pub async fn missing_entries(timeslot: BsonTimeSlot, db: &Database) -> WebResult
 	let timeslot_id = timeslot.id;
 
 	let mut required_entries = get_entries(&timeslot.into()).enumerate().collect::<HashMap<_, _>>();
+
+	debug!(?required_entries, "calculated required entries for timeslot");
 	
 	let required_indexes = required_entries.keys().map(|x| *x as i32).collect::<Vec<_>>();
 
