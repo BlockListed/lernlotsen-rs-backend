@@ -31,12 +31,13 @@ pub struct BaseTimeSlot<UUID, Date> {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(tag = "status")]
 pub enum EntryState {
 	Success {
 		students: Vec<(Student, StudentStatus)>,
 	},
-	CanceledByStudents,
-	CanceledByTutor,
+	CancelledByStudents,
+	CancelledByTutor,
 	Holidays,
 	Other,
 }
