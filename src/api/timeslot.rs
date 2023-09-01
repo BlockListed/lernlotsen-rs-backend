@@ -8,7 +8,6 @@ use bson::Uuid as BsonUuid;
 use chrono::{NaiveDate, NaiveTime, Weekday, Datelike};
 
 use futures_util::StreamExt;
-use mongodb::Database;
 use serde::{Deserialize, Serialize};
 
 use tracing::error;
@@ -19,13 +18,15 @@ use crate::db::model::{BsonTimeSlot, Student, TimeSlot};
 
 use crate::api::util::prelude::*;
 
+use super::AppState;
+
 #[derive(Deserialize, Debug)]
 pub struct TimeslotQuery {
 	id: Option<Uuid>,
 }
 
 pub async fn query(
-	State(db): State<Database>,
+	State(AppState { db, .. }): State<AppState>,
 	Query(q): Query<TimeslotQuery>,
 ) -> WebResult<Vec<TimeSlot>, &'static str> {
 	let query = q.id.map(|x| {
@@ -72,7 +73,7 @@ pub struct TimeslotCreateReturn {
 }
 
 pub async fn create(
-	State(db): State<Database>,
+	State(AppState { db, .. }): State<AppState>,
 	Json(r): Json<TimeslotCreate>,
 ) -> WebResult<TimeslotCreateReturn, &'static str> {
 	spawn_in_current_span(async move {

@@ -28,5 +28,5 @@ async fn main() {
 
 	let db = get_db(&cfg).await;
 
-	api::run(db, &cfg).await;
+	api::run(db, cfg).await;
 }

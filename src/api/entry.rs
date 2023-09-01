@@ -3,7 +3,6 @@ use axum::http::StatusCode;
 
 use chrono::{DateTime, Utc};
 use futures_util::StreamExt;
-use mongodb::Database;
 
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -16,6 +15,7 @@ use crate::api::logic::entries::get_time_from_index_and_timeslot;
 use crate::db::model::{BsonEntry, Entry, EntryState, TimeSlot};
 use crate::db::{collection_entries, collection_timeslots};
 
+use super::AppState;
 use super::util::prelude::*;
 
 use logic::entries::verify_state;
@@ -28,7 +28,7 @@ pub struct CreateEntry {
 }
 
 pub async fn create(
-	State(db): State<Database>,
+	State(AppState { db, .. }): State<AppState>,
 	Path(q): Path<TimeSlotQuery>,
 	Json(r): Json<CreateEntry>,
 ) -> WebResult<&'static str, Value> {
@@ -97,7 +97,7 @@ pub struct TimeSlotQuery {
 	id: Uuid,
 }
 
-pub async fn query(State(db): State<Database>, Path(q): Path<TimeSlotQuery>) -> WebResult<Vec<(Entry, DateTime<Utc>)>, &'static str> {
+pub async fn query(State(AppState { db, .. }): State<AppState>, Path(q): Path<TimeSlotQuery>) -> WebResult<Vec<(Entry, DateTime<Utc>)>, &'static str> {
 	spawn_in_current_span(async move {
 		let timeslots = collection_timeslots(&db).await;
 
@@ -144,7 +144,7 @@ pub async fn query(State(db): State<Database>, Path(q): Path<TimeSlotQuery>) -> 
 
 
 
-pub async fn missing(State(db): State<Database>, Path(q): Path<TimeSlotQuery>) -> WebResult<Vec<(usize, DateTime<Utc>)>, &'static str> {
+pub async fn missing(State(AppState { db, .. }): State<AppState>, Path(q): Path<TimeSlotQuery>) -> WebResult<Vec<(usize, DateTime<Utc>)>, &'static str> {
 	spawn_in_current_span(async move {
 		let timeslots = collection_timeslots(&db).await;
 
