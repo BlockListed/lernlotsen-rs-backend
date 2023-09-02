@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use mongodb::{Database, IndexModel};
 
-use super::{collection_timeslots, collection_entries};
+use super::{collection_entries, collection_timeslots};
 
 pub async fn migrate(db: &Database) {
 	up_timeslot_index_2023_09_02_12_39_22_00_00(db).await;
@@ -35,7 +35,10 @@ async fn up_timeslot_index_2023_09_02_12_39_22_00_00(db: &Database) {
 async fn down_timeslot_index_2023_09_02_12_39_22_00_00(db: &Database) {
 	let timeslots = collection_timeslots(db).await;
 
-	timeslots.drop_index("timeslots_id_2023_09_02_12_39_22_00_00", None).await.unwrap();
+	timeslots
+		.drop_index("timeslots_id_2023_09_02_12_39_22_00_00", None)
+		.await
+		.unwrap();
 }
 
 async fn up_entries_index_2023_09_02_12_43_36_00_00(db: &Database) {
@@ -63,5 +66,8 @@ async fn up_entries_index_2023_09_02_12_43_36_00_00(db: &Database) {
 async fn down_entries_index_2023_09_02_12_43_36_00_00(db: &Database) {
 	let entries = collection_entries(db).await;
 
-	entries.drop_index("entries_id_index_2023_09_02_12_43_36_00_00", None).await.unwrap();
+	entries
+		.drop_index("entries_id_index_2023_09_02_12_43_36_00_00", None)
+		.await
+		.unwrap();
 }
