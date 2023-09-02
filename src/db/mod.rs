@@ -1,10 +1,12 @@
 use std::time::Duration;
 
-use mongodb::{options::ClientOptions, Client, Collection, Database, IndexModel};
+use mongodb::{options::ClientOptions, Client, Collection, Database};
 
 use crate::configuration::Config;
 
 pub mod model;
+
+mod migrate;
 
 use model::{BsonEntry, BsonTimeSlot};
 
@@ -19,49 +21,9 @@ pub async fn get_db(cfg: &Config) -> Database {
 	let client = Client::with_options(opts).unwrap();
 	let database = client.database(&cfg.database.database);
 
-	migrate(&database).await;
+	migrate::migrate(&database).await;
 
 	database
-}
-
-async fn migrate(db: &Database) {
-	let timeslots = collection_timeslots(db).await;
-
-	let timeslots_id_index = IndexModel::builder()
-		.keys(bson::doc! {
-			"user_id": 1,
-			"id": 1,
-		})
-		.options(
-			mongodb::options::IndexOptions::builder()
-				.unique(Some(true))
-				.build(),
-		)
-		.build();
-
-	timeslots
-		.create_index(timeslots_id_index, None)
-		.await
-		.unwrap();
-
-	let entries = collection_entries(db).await;
-
-	let entries_index_index = IndexModel::builder()
-		.keys(bson::doc! {
-			"timeslot_id": 1,
-			"index": 1,
-		})
-		.options(
-			mongodb::options::IndexOptions::builder()
-				.unique(Some(true))
-				.build(),
-		)
-		.build();
-
-	entries
-		.create_index(entries_index_index, None)
-		.await
-		.unwrap();
 }
 
 pub async fn collection_timeslots(db: &Database) -> Collection<BsonTimeSlot> {
