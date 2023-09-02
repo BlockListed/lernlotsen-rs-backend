@@ -1,18 +1,18 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::body::Body;
 use axum::http::Request;
 use axum::routing::get;
 use axum::{Router, Server};
 
-use axum_session::{SessionConfig, SessionLayer, SessionNullSessionStore};
 use mongodb::Database;
 
-use openidconnect::core::CoreClient;
 use tower_http::trace::TraceLayer;
 use tower_request_id::{RequestId, RequestIdLayer};
 use tracing::{info, info_span};
 
+use crate::auth::Authenticator;
 use crate::configuration::Config;
 
 mod auth;
@@ -25,31 +25,28 @@ mod util;
 #[derive(Clone)]
 pub struct AppState {
 	pub db: Database,
-	pub auth: CoreClient,
+	pub auth: Arc<Authenticator>,
 	pub cfg: Arc<Config>,
 }
 
 pub async fn run(db: Database, cfg: Config) {
 	let hosturl = cfg.hosturl.clone();
 
+	let auth = Arc::new(Authenticator::new(cfg.auth.domain.as_str(), Duration::from_secs(1800), &cfg.auth.audience).await);
+
 	let state = AppState {
 		db,
-		auth: auth::util::discover(&cfg.auth).await,
+		auth: auth.clone(),
 		cfg: cfg.into(),
 	};
-
-	let session_config = SessionConfig::new();
-
-	let session_store = SessionNullSessionStore::new(None, session_config).await.unwrap();
 
 	let app = Router::new()
 		.route("/timeslots", get(timeslot::query).post(timeslot::create))
 		.route("/timeslots/:id/entries", get(entry::query).post(entry::create))
 		.route("/timeslots/:id/entries/missing", get(entry::missing))
-		.route("/login", get(auth::login))
-		.route("/login_callback", get(auth::login_callback))
+		.nest("/verify", auth::router())
 		.with_state(state)
-		.layer(SessionLayer::new(session_store))
+		.layer(axum::middleware::from_fn_with_state(auth, auth::auth_middleware))
 		.layer(
 			TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
 				let request_id = request

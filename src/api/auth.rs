@@ -1,82 +1,57 @@
-use axum::extract::{State, Query};
-use axum::http::{StatusCode, HeaderMap};
-use axum::response::IntoResponse;
-use axum_session::SessionNullSession;
-use openidconnect::reqwest::async_http_client;
-use openidconnect::{AuthorizationCode, Nonce, TokenResponse, AccessTokenHash, OAuth2TokenResponse};
-use serde::Deserialize;
-use tracing::debug;
+use std::sync::Arc;
+
+use axum::{Router, Extension};
+use axum::extract::{State, TypedHeader};
+use axum::headers::Cookie;
+use axum::http::Request;
+use axum::middleware::Next;
+use axum::response::{Response, IntoResponse};
+use axum::routing::get;
+use reqwest::StatusCode;
+
+use tracing::warn;
+
+use crate::api::util::WebResult;
+use crate::auth::{Authenticator, AuthenticatorError};
 
 use super::AppState;
 
-pub mod util;
-
-pub async fn login(State(AppState { auth, .. }): State<AppState>, session: SessionNullSession) -> impl IntoResponse {
-	let (url, csrf, nonce) = auth
-		.authorize_url(
-			openidconnect::core::CoreAuthenticationFlow::AuthorizationCode,
-			openidconnect::CsrfToken::new_random,
-			openidconnect::Nonce::new_random,
-		)
-		.url();
-
-	session.set("csrf", csrf);
-	session.set("nonce", nonce);
-	
-	let mut headers = HeaderMap::new();
-
-	headers.append("Location", url.as_str().try_into().expect("Url contained invalid header characters for some reason"));
-
-	(StatusCode::FOUND, headers)
+pub fn router() -> Router<AppState> {
+	Router::new()
+		.route("/", get(verify))
 }
 
-#[derive(Deserialize)]
-pub struct CallbackQuery {
-	pub code: String,
-	pub state: String,
+#[axum::debug_handler]
+async fn verify(Extension(UserId(u)): Extension<UserId>) -> (StatusCode, String) {
+	(StatusCode::OK, format!("health check ok - {}", u))
 }
 
-pub async fn login_callback(State(AppState { auth, .. }): State<AppState>, session: SessionNullSession, Query(q): Query<CallbackQuery>) -> String {
-	let Some(csrf): Option<String> = session.get("csrf") else {
-		debug!("Request was missing csrf");
-		return "Invalid session data".to_string();
+#[derive(Clone)]
+pub struct UserId(pub String);
+
+pub async fn auth_middleware<B>(State(auth): State<Arc<Authenticator>>, TypedHeader(cookies): TypedHeader<Cookie>, mut req: Request<B>, next: Next<B>) -> Response {
+	let Some(auth_token) = cookies.get("auth_token") else {
+		return WebResult::NotFine::<(), _>(StatusCode::UNAUTHORIZED, "missing authorization cookie").into_response();
 	};
 
-	let Some(nonce): Option<Nonce> = session.get("nonce") else {
-		debug!("Request was missing nonce");
-		return "Invalid session data".to_string();
-	};
+	let auth_status = auth.verify(auth_token).await;
 
-	if q.state != csrf {
-		return "CSRF error".to_string();
-	}
-	
-	let token_response = auth
-		.exchange_code(AuthorizationCode::new(q.code))
-		.request_async(async_http_client)
-		.await
-		.unwrap();
-
-	let id_token = token_response
-		.id_token()
-		.expect("Server missing id_token");
-	let claims = id_token.claims(&auth.id_token_verifier(), &nonce).unwrap();
-
-	if let Some(expected) = claims.access_token_hash() {
-		let actual = AccessTokenHash::from_token(token_response.access_token(), &id_token.signing_alg().unwrap()).unwrap();
-
-		if actual != *expected {
-			return "Internal Server Error".to_string();
+	match auth_status {
+		Ok(t) => {
+			let exts = req.extensions_mut();
+			exts.insert(UserId(t));
+		}
+		Err(e) => match e {
+			AuthenticatorError::ClaimsNotVerifiable(v) => {
+				warn!(claims=?v, "authentication claims invalid");
+				return WebResult::NotFine::<(), _>(StatusCode::FORBIDDEN, "jwt (maybe no longer) valid").into_response();
+			},
+			e => {
+				warn!(%e, "invalid jwt");
+				return WebResult::NotFine::<(), _>(StatusCode::UNPROCESSABLE_ENTITY, "jwt invalid").into_response();
+			}
 		}
 	}
 
-	let id = format!("{}:{}", claims.issuer().as_str(), claims.subject().as_str());
-
-	session.set("id", id.clone());
-	session.remove("csrf");
-	session.remove("nonce");
-
-	session.renew();
-
-	id
+	return next.run(req).await;
 }

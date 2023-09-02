@@ -19,7 +19,5 @@ pub struct DatabaseConfig {
 #[derive(Deserialize)]
 pub struct Authorization {
 	pub domain: url::Url,
-	pub redirect: url::Url,
-	pub clientid: String,
-	pub clientsecret: String,
+	pub audience: String,
 }

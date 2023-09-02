@@ -1,6 +1,7 @@
 use db::get_db;
 
 mod api;
+mod auth;
 mod configuration;
 mod db;
 
