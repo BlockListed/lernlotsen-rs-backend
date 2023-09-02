@@ -65,5 +65,5 @@ pub async fn auth_middleware<B>(
 		},
 	}
 
-	return next.run(req).await;
+	next.run(req).await
 }

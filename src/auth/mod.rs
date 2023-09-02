@@ -116,14 +116,12 @@ impl Authenticator {
 
 		let issuer = claims
 			.get("iss")
-			.map(|i| i.as_str())
-			.flatten()
+			.and_then(|i| i.as_str())
 			.ok_or(AuthenticatorError::Claims("invalid iss"))?;
 
 		let subject = claims
 			.get("sub")
-			.map(|i| i.as_str())
-			.flatten()
+			.and_then(|i| i.as_str())
 			.ok_or(AuthenticatorError::Claims("invalid sub"))?;
 
 		Ok(format!("{}:{}", issuer, subject))

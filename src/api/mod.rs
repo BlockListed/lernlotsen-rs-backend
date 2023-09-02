@@ -30,7 +30,7 @@ pub struct AppState {
 }
 
 pub async fn run(db: Database, cfg: Config) {
-	let hosturl = cfg.hosturl.clone();
+	let hosturl = cfg.hosturl;
 
 	let auth = Arc::new(
 		Authenticator::new(

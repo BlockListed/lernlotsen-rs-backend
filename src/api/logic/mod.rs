@@ -15,7 +15,7 @@ pub fn check_entries_belong_to_userid<'a>(
 	error!(invalid_entry = ?invalid, "application attempted to return entry, which does not belong to user!");
 
 	// technically true and avoids leaking this information.
-	return NotFine(StatusCode::INTERNAL_SERVER_ERROR, "database error");
+	NotFine(StatusCode::INTERNAL_SERVER_ERROR, "database error")
 }
 
 pub fn check_timeslots_belong_to_userid<'a>(
@@ -29,5 +29,5 @@ pub fn check_timeslots_belong_to_userid<'a>(
 	error!(invalid_timeslot = ?invalid, "application attempt to return timeslot, which does not belong to user!");
 
 	// technically true and avoids leaking this information.
-	return NotFine(StatusCode::INTERNAL_SERVER_ERROR, "database error");
+	NotFine(StatusCode::INTERNAL_SERVER_ERROR, "database error")
 }
