@@ -18,7 +18,7 @@ use crate::db::{collection_entries, collection_timeslots};
 
 use super::AppState;
 use super::auth::UserId;
-use super::logic::entries::check_entries_belong_to_userid;
+use super::logic::check_entries_belong_to_userid;
 use super::util::prelude::*;
 
 use logic::entries::verify_state;
@@ -143,7 +143,7 @@ pub async fn query(State(AppState { db, .. }): State<AppState>, Path(q): Path<Ti
 			.collect::<Vec<_>>()
 			.await;
 		
-		match check_entries_belong_to_userid(res.iter().map(|i| &i.0), t) {
+		match check_entries_belong_to_userid(res.iter().map(|i| &i.0), &t) {
 			Fine( .. ) => (),
 			NotFine(c, e) => return NotFine(c, e)
 		}

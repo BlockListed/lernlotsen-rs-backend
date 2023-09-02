@@ -20,7 +20,7 @@ pub enum StudentStatus {
 	Missing,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct BaseTimeSlot<UUID, Date> {
 	pub user_id: String,
 	pub id: UUID,
