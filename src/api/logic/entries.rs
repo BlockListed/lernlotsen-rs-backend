@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use futures_util::StreamExt;
 use mongodb::Database;
 
-use tracing::{debug, error, trace};
+use tracing::{debug, error, trace, warn};
 
 use crate::api::util::prelude::*;
 use crate::db::collection_entries;
@@ -52,7 +52,7 @@ pub fn get_entries(timeslot: &TimeSlot) -> EntriesForTimeslot {
 }
 
 impl<'a> Iterator for EntriesForTimeslot<'a> {
-	type Item = DateTime<Utc>;
+	type Item = DateTime<chrono_tz::Tz>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		let date_opt = get_time_from_index_and_timeslot(self.timeslot, self.index).and_then(|x| {
@@ -77,22 +77,39 @@ impl<'a> Iterator for EntriesForTimeslot<'a> {
 	}
 }
 
-pub fn get_time_from_index_and_timeslot(timeslot: &TimeSlot, index: u64) -> Option<DateTime<Utc>> {
+pub fn get_time_from_index_and_timeslot(timeslot: &TimeSlot, index: u64) -> Option<DateTime<chrono_tz::Tz>> {
 	let days_from_start = chrono::Days::new(7 * index);
 
 	let new_date = timeslot.timerange.start.checked_add_days(days_from_start)?;
 
 	if new_date > timeslot.timerange.end {
-		return None;
+		return Option::None;
 	}
 
-	Some(new_date.and_time(timeslot.time.start).and_utc())
+	let time = new_date.and_time(timeslot.time.start);
+
+	let local_time = time.and_local_timezone(timeslot.timezone);
+	
+	use chrono::LocalResult::*;
+	match local_time {
+		None => {
+			warn!(%time, "could not convert date to local");
+			Option::None
+		}
+		Single(t) => {
+			Some(t)
+		}
+		Ambiguous(s, e) => {
+			warn!(%time, start=%s, end=%e, "time in local timezone is ambiguous");
+			Option::None
+		}
+	}
 }
 
 pub async fn missing_entries(
 	timeslot: BsonTimeSlot,
 	db: &Database,
-) -> WebResult<Vec<(usize, DateTime<Utc>)>, &'static str> {
+) -> WebResult<Vec<(usize, String)>, &'static str> {
 	let entries = collection_entries(db).await;
 
 	let timeslot_id = timeslot.id;
@@ -142,7 +159,7 @@ pub async fn missing_entries(
 	}
 
 	// All found entries have already been removed.
-	let mut missing_entries = required_entries.into_iter().collect::<Vec<_>>();
+	let mut missing_entries = required_entries.into_iter().map(|(i, d)| (i, d.to_rfc3339())).collect::<Vec<_>>();
 
 	missing_entries.sort_unstable_by_key(|x| x.0);
 

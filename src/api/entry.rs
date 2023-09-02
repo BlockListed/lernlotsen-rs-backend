@@ -2,7 +2,6 @@ use axum::extract::{Json, Path, State};
 use axum::http::StatusCode;
 use axum::Extension;
 
-use chrono::{DateTime, Utc};
 use futures_util::StreamExt;
 
 use serde::Deserialize;
@@ -109,7 +108,7 @@ pub async fn query(
 	State(AppState { db, .. }): State<AppState>,
 	Path(q): Path<TimeSlotQuery>,
 	Extension(UserId(t)): Extension<UserId>,
-) -> WebResult<Vec<(Entry, DateTime<Utc>)>, &'static str> {
+) -> WebResult<Vec<(Entry, String)>, &'static str> {
 	spawn_in_current_span(async move {
 		let timeslots = collection_timeslots(&db).await;
 
@@ -144,7 +143,7 @@ pub async fn query(
 					return None;
 				};
 
-				Some((entry, time))
+				Some((entry, time.to_rfc3339()))
 			})
 			.collect::<Vec<_>>()
 			.await;
@@ -164,7 +163,7 @@ pub async fn missing(
 	State(AppState { db, .. }): State<AppState>,
 	Path(q): Path<TimeSlotQuery>,
 	Extension(UserId(t)): Extension<UserId>,
-) -> WebResult<Vec<(usize, DateTime<Utc>)>, &'static str> {
+) -> WebResult<Vec<(usize, String)>, &'static str> {
 	spawn_in_current_span(async move {
 		let timeslots = collection_timeslots(&db).await;
 
