@@ -1,7 +1,6 @@
 use axum::extract::{Json, Path, State};
 use axum::http::StatusCode;
 use axum::Extension;
-use axum::response::IntoResponse;
 
 use futures_util::StreamExt;
 
@@ -11,18 +10,18 @@ use serde_json::{json, Value};
 use tracing::{debug, error};
 use uuid::Uuid;
 
-use crate::api::logic;
-use crate::api::logic::entries::get_time_from_index_and_timeslot;
+use crate::api::handlers;
+use crate::api::handlers::entries::get_time_from_index_and_timeslot;
 use crate::db::model::{BsonEntry, Entry, EntryState, TimeSlot};
 use crate::db::{collection_entries, collection_timeslots};
 
 use super::auth::UserId;
-use super::logic::check_entries_belong_to_userid;
+use super::handlers::check_object_belong_to_userid;
 use super::util::prelude::*;
 use super::AppState;
 
-use logic::entries::missing_entries;
-use logic::entries::verify_state;
+use handlers::entries::missing_entries;
+use handlers::entries::verify_state;
 
 #[derive(Deserialize, Debug)]
 pub struct CreateEntry {
@@ -149,7 +148,7 @@ pub async fn query(
 			.collect::<Vec<_>>()
 			.await;
 
-		match check_entries_belong_to_userid(res.iter().map(|i| &i.0), &t) {
+		match check_object_belong_to_userid(res.iter().map(|i| &i.0), &t) {
 			Fine( .. ) => (),
 			NotFine(c, e) => return NotFine(c, e)
 		}

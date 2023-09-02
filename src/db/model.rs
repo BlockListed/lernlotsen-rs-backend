@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::ops::Range;
 
 use bson::Uuid as BsonUuid;
@@ -83,5 +84,30 @@ impl From<BsonEntry> for Entry {
 			timeslot_id: v.timeslot_id.into(),
 			state: v.state,
 		}
+	}
+}
+
+pub trait HasUserId<'a> {
+	fn user_id(&'a self) -> &'a str;
+	fn identifier(&self) -> String;
+}
+
+impl<'a, U: Display, D> HasUserId<'a> for BaseTimeSlot<U, D> {
+	fn user_id(&'a self) -> &'a str {
+		&self.user_id
+	}
+
+	fn identifier(&self) -> String {
+		format!("timeslot: {}", self.id)
+	}
+}
+
+impl<'a, U: Display> HasUserId<'a> for BaseEntry<U> {
+	fn user_id(&'a self) -> &'a str {
+		&self.user_id
+	}
+
+	fn identifier(&self) -> String {
+		format!("entry: {}-{}", self.timeslot_id, self.index)
 	}
 }

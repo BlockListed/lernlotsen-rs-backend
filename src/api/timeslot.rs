@@ -20,7 +20,7 @@ use crate::db::model::{BsonTimeSlot, Student, TimeSlot};
 use crate::api::util::prelude::*;
 
 use super::auth::UserId;
-use super::logic::check_timeslots_belong_to_userid;
+use super::handlers::check_object_belong_to_userid;
 use super::AppState;
 
 #[derive(Deserialize, Debug)]
@@ -65,7 +65,7 @@ pub async fn query(
 			.collect::<Vec<_>>()
 			.await;
 
-		match check_timeslots_belong_to_userid(ret.iter(), &t) {
+		match check_object_belong_to_userid(ret.iter(), &t) {
 			Fine(..) => (),
 			NotFine(c, e) => return NotFine(c, e),
 		};
