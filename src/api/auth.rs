@@ -49,7 +49,7 @@ pub async fn auth_middleware<B>(
 			AuthenticatorError::ClaimsNotVerifiable(v) => {
 				warn!(claims=?v, "authentication claims invalid");
 				return WebResult::NotFine::<(), _>(
-					StatusCode::FORBIDDEN,
+					StatusCode::UNAUTHORIZED,
 					"jwt (maybe no longer) valid",
 				)
 				.into_response();
