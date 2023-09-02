@@ -83,6 +83,7 @@ pub struct TimeslotCreate {
 	weekday: Weekday,
 	time: Range<NaiveTime>,
 	timerange: Range<NaiveDate>,
+	timezone: chrono_tz::Tz,
 }
 
 #[derive(Serialize)]
@@ -112,6 +113,7 @@ pub async fn create(
 			time: r.time,
 			timerange: r.timerange,
 			weekday: r.weekday,
+			timezone: r.timezone,
 		};
 
 		let collection = collection_timeslots(&db).await;

@@ -5,6 +5,7 @@ use bson::Uuid as BsonUuid;
 use chrono::NaiveDate;
 use chrono::NaiveTime;
 use chrono::Weekday;
+use chrono_tz::Tz;
 
 use serde::{Deserialize, Serialize};
 
@@ -29,6 +30,7 @@ pub struct BaseTimeSlot<UUID, Date> {
 	pub time: Range<NaiveTime>,
 	pub timerange: Range<Date>,
 	pub weekday: Weekday,
+	pub timezone: Tz,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -68,6 +70,7 @@ impl From<BsonTimeSlot> for TimeSlot {
 			time: v.time,
 			timerange: v.timerange,
 			weekday: v.weekday,
+			timezone: v.timezone,
 		}
 	}
 }

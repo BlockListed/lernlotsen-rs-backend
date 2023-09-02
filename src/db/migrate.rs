@@ -6,6 +6,8 @@ use super::{collection_entries, collection_timeslots};
 pub async fn migrate(db: &Database) {
 	up_timeslot_index_2023_09_02_12_39_22_00_00(db).await;
 	up_entries_index_2023_09_02_12_43_36_00_00(db).await;
+
+	up_add_timezone_field_2023_09_02_12_49_42_00_00(db).await;
 }
 
 // Get timestamps for migrations using `date -u -Iseconds | sed -E "s/(:|-|\+|T)/_/g"`
@@ -68,6 +70,45 @@ async fn down_entries_index_2023_09_02_12_43_36_00_00(db: &Database) {
 
 	entries
 		.drop_index("entries_id_index_2023_09_02_12_43_36_00_00", None)
+		.await
+		.unwrap();
+}
+
+async fn up_add_timezone_field_2023_09_02_12_49_42_00_00(db: &Database) {
+	let timeslots = collection_timeslots(db).await;
+
+	timeslots
+		.update_many(
+			bson::doc! {
+				"timezone": { "$exists": false },
+			},
+			bson::doc! {
+				"$set": {
+					"timezone": "Europe/Berlin",
+				}
+			},
+			None,
+		)
+		.await
+		.unwrap();
+}
+
+// Probably useless but I dont care
+async fn down_add_timezone_field_2023_09_02_12_49_42_00_00(db: &Database) {
+	let timeslots = collection_timeslots(db).await;
+
+	timeslots
+		.update_many(
+			bson::doc! {
+				"timezone": { "$exists": true },
+			},
+			bson::doc! {
+				"$unset": {
+					"timezone": "",
+				}
+			},
+			None,
+		)
 		.await
 		.unwrap();
 }
