@@ -5,6 +5,7 @@ use mongodb::{options::ClientOptions, Client, Collection, Database};
 use crate::configuration::Config;
 
 pub mod model;
+pub mod queries;
 
 mod migrate;
 

@@ -10,18 +10,18 @@ use serde_json::{json, Value};
 use tracing::{debug, error};
 use uuid::Uuid;
 
-use crate::api::handlers;
-use crate::api::handlers::entries::get_time_from_index_and_timeslot;
+use crate::api::logic;
+use crate::api::logic::entries::get_time_from_index_and_timeslot;
 use crate::db::model::{BsonEntry, Entry, EntryState, TimeSlot};
 use crate::db::{collection_entries, collection_timeslots};
 
 use super::auth::UserId;
-use super::handlers::check_object_belong_to_userid;
+use super::logic::check_object_belong_to_userid;
 use super::util::prelude::*;
 use super::AppState;
 
-use handlers::entries::missing_entries;
-use handlers::entries::verify_state;
+use logic::entries::missing_entries;
+use logic::entries::verify_state;
 
 #[derive(Deserialize, Debug)]
 pub struct CreateEntry {

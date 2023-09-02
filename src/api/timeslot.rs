@@ -20,7 +20,7 @@ use crate::db::model::{BsonTimeSlot, Student, TimeSlot};
 use crate::api::util::prelude::*;
 
 use super::auth::UserId;
-use super::handlers::check_object_belong_to_userid;
+use super::logic::check_object_belong_to_userid;
 use super::AppState;
 
 #[derive(Deserialize, Debug)]
