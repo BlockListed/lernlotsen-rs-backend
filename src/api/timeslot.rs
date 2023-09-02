@@ -1,5 +1,6 @@
 use std::ops::Range;
 
+use axum::Extension;
 use axum::extract::{Json, Query, State};
 use axum::http::StatusCode;
 
@@ -19,6 +20,7 @@ use crate::db::model::{BsonTimeSlot, Student, TimeSlot};
 use crate::api::util::prelude::*;
 
 use super::AppState;
+use super::auth::UserId;
 
 #[derive(Deserialize, Debug)]
 pub struct TimeslotQuery {
@@ -27,10 +29,12 @@ pub struct TimeslotQuery {
 
 pub async fn query(
 	State(AppState { db, .. }): State<AppState>,
+	Extension(UserId(t)): Extension<UserId>,
 	Query(q): Query<TimeslotQuery>,
 ) -> WebResult<Vec<TimeSlot>, &'static str> {
 	let query = q.id.map(|x| {
 		bson::doc! {
+			"user_id": t,
 			"id": BsonUuid::from_uuid_1(x),
 		}
 	});
@@ -74,6 +78,7 @@ pub struct TimeslotCreateReturn {
 
 pub async fn create(
 	State(AppState { db, .. }): State<AppState>,
+	Extension(UserId(t)): Extension<UserId>,
 	Json(r): Json<TimeslotCreate>,
 ) -> WebResult<TimeslotCreateReturn, &'static str> {
 	spawn_in_current_span(async move {
@@ -83,6 +88,7 @@ pub async fn create(
 	
 		let id = Uuid::new_v4();
 		let ts = BsonTimeSlot {
+			user_id: t,
 			id: id.into(),
 			subject: r.subject,
 			students: r.students,

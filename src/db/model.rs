@@ -22,6 +22,7 @@ pub enum StudentStatus {
 
 #[derive(Serialize, Deserialize)]
 pub struct BaseTimeSlot<UUID, Date> {
+	pub user_id: String,
 	pub id: UUID,
 	pub subject: String,
 	pub students: Vec<Student>,
@@ -43,8 +44,9 @@ pub enum EntryState {
 	Other,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct BaseEntry<UUID> {
+	pub user_id: String,
 	pub index: u32,
 	pub timeslot_id: UUID,
 	pub state: EntryState,
@@ -59,6 +61,7 @@ pub type BsonEntry = BaseEntry<BsonUuid>;
 impl From<BsonTimeSlot> for TimeSlot {
 	fn from(v: BsonTimeSlot) -> Self {
 		Self {
+			user_id: v.user_id,
 			id: v.id.into(),
 			students: v.students,
 			subject: v.subject,
@@ -72,6 +75,7 @@ impl From<BsonTimeSlot> for TimeSlot {
 impl From<BsonEntry> for Entry {
 	fn from(v: BsonEntry) -> Self {
 		Self {
+			user_id: v.user_id,
 			index: v.index,
 			timeslot_id: v.timeslot_id.into(),
 			state: v.state,

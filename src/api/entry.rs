@@ -1,3 +1,4 @@
+use axum::Extension;
 use axum::extract::{Json, State, Path};
 use axum::http::StatusCode;
 
@@ -16,6 +17,8 @@ use crate::db::model::{BsonEntry, Entry, EntryState, TimeSlot};
 use crate::db::{collection_entries, collection_timeslots};
 
 use super::AppState;
+use super::auth::UserId;
+use super::logic::entries::check_entries_belong_to_userid;
 use super::util::prelude::*;
 
 use logic::entries::verify_state;
@@ -30,6 +33,7 @@ pub struct CreateEntry {
 pub async fn create(
 	State(AppState { db, .. }): State<AppState>,
 	Path(q): Path<TimeSlotQuery>,
+	Extension(UserId(t)): Extension<UserId>,
 	Json(r): Json<CreateEntry>,
 ) -> WebResult<&'static str, Value> {
 	spawn_in_current_span(async move {
@@ -38,6 +42,7 @@ pub async fn create(
 		let selected_timeslot = match crate::handle_db!(timeslots
 			.find_one(
 				bson::doc! {
+					"user_id": &t,
 					"id": q.id,
 				},
 				None,
@@ -52,6 +57,7 @@ pub async fn create(
 
 		let entry = match verify_state(&r.state, &selected_timeslot.students) {
 			Ok(_) => BsonEntry {
+				user_id: t,
 				index: r.index,
 				timeslot_id: selected_timeslot.id,
 				state: r.state,
@@ -97,11 +103,12 @@ pub struct TimeSlotQuery {
 	id: Uuid,
 }
 
-pub async fn query(State(AppState { db, .. }): State<AppState>, Path(q): Path<TimeSlotQuery>) -> WebResult<Vec<(Entry, DateTime<Utc>)>, &'static str> {
+pub async fn query(State(AppState { db, .. }): State<AppState>, Path(q): Path<TimeSlotQuery>, Extension(UserId(t)): Extension<UserId>) -> WebResult<Vec<(Entry, DateTime<Utc>)>, &'static str> {
 	spawn_in_current_span(async move {
 		let timeslots = collection_timeslots(&db).await;
 
 		let timeslot: TimeSlot = match crate::handle_db!(timeslots.find_one(bson::doc! {
+			"user_id": &t,
 			"id": q.id,
 		}, None).await, "database error") {
 			Some(x) => x.into(),
@@ -113,7 +120,7 @@ pub async fn query(State(AppState { db, .. }): State<AppState>, Path(q): Path<Ti
 		let entries = collection_entries(&db).await;
 
 		let res: Vec<_> = crate::handle_db!(entries.find(bson::doc! {
-			"timeslot_id": q.id,
+			"timeslot_id": timeslot.id,
 		}, None).await, "database error")
 			.filter_map(|v| async {
 				match v {
@@ -135,6 +142,11 @@ pub async fn query(State(AppState { db, .. }): State<AppState>, Path(q): Path<Ti
 			})
 			.collect::<Vec<_>>()
 			.await;
+		
+		match check_entries_belong_to_userid(res.iter().map(|i| &i.0), t) {
+			Fine( .. ) => (),
+			NotFine(c, e) => return NotFine(c, e)
+		}
 
 		Fine(StatusCode::OK, res)
 	})
@@ -144,11 +156,12 @@ pub async fn query(State(AppState { db, .. }): State<AppState>, Path(q): Path<Ti
 
 
 
-pub async fn missing(State(AppState { db, .. }): State<AppState>, Path(q): Path<TimeSlotQuery>) -> WebResult<Vec<(usize, DateTime<Utc>)>, &'static str> {
+pub async fn missing(State(AppState { db, .. }): State<AppState>, Path(q): Path<TimeSlotQuery>, Extension(UserId(t)): Extension<UserId>) -> WebResult<Vec<(usize, DateTime<Utc>)>, &'static str> {
 	spawn_in_current_span(async move {
 		let timeslots = collection_timeslots(&db).await;
 
 		let timeslot = match crate::handle_db!(timeslots.find_one(Some(bson::doc! {
+			"user_id": t,
 			"id": q.id,
 		}), None).await, "database error") {
 			Some(v) => v,

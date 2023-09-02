@@ -29,6 +29,7 @@ async fn migrate(db: &Database) {
 
 	let timeslots_id_index = IndexModel::builder()
 		.keys(bson::doc! {
+			"user_Id": 1,
 			"id": 1,
 		})
 		.options(
@@ -47,8 +48,8 @@ async fn migrate(db: &Database) {
 
 	let entries_index_index = IndexModel::builder()
 		.keys(bson::doc! {
-			"index": 1,
 			"timeslot_id": 1,
+			"index": 1,
 		})
 		.options(
 			mongodb::options::IndexOptions::builder()

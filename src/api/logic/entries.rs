@@ -126,3 +126,14 @@ pub async fn missing_entries(timeslot: BsonTimeSlot, db: &Database) -> WebResult
 
 	Fine(StatusCode::OK, missing_entries)
 }
+
+pub fn check_entries_belong_to_userid<'a>(mut entries: impl Iterator<Item = &'a crate::db::model::Entry>, user_id: String) -> WebResult<(), &'static str> {
+	let Some(invalid) = entries.find(|i| i.user_id != user_id) else {
+		return Fine(StatusCode::OK, ())
+	};
+
+	error!(invalid_entry = ?invalid, "application attempt to return entry, which does not belong to user!");
+	
+	// technically true and avoids leaking this information.
+	return NotFine(StatusCode::INTERNAL_SERVER_ERROR, "database error")
+}
