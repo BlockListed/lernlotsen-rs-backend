@@ -27,3 +27,4 @@ alcoholic_jwt = "4091"
 reqwest = { version = "0.11.20", features = ["json"] }
 thiserror = "1.0.47"
 chrono-tz = { version = "0.8.3", features = ["serde"] }
+anyhow = "1.0.75"

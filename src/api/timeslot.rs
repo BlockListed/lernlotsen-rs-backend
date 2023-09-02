@@ -1,21 +1,12 @@
-use std::ops::Range;
-
 use axum::extract::{Json, Query, State};
 use axum::http::StatusCode;
 use axum::Extension;
 
-use bson::Uuid as BsonUuid;
-
-use chrono::{Datelike, NaiveDate, NaiveTime, Weekday};
-
-use futures_util::StreamExt;
-use serde::{Deserialize, Serialize};
-
+use serde::Serialize;
 use tracing::error;
 use uuid::Uuid;
 
-use crate::db::collection_timeslots;
-use crate::db::model::{BsonTimeSlot, Student, TimeSlot};
+use crate::db::model::TimeSlot;
 
 use crate::api::util::prelude::*;
 
@@ -23,67 +14,30 @@ use super::auth::UserId;
 use super::logic::check_object_belong_to_userid;
 use super::AppState;
 
-#[derive(Deserialize, Debug)]
-pub struct TimeslotQuery {
-	id: Option<Uuid>,
-}
+use super::handlers::timeslot::{self, TimeSlotQuery, TimeslotCreate};
 
 pub async fn query(
 	State(AppState { db, .. }): State<AppState>,
-	Extension(UserId(t)): Extension<UserId>,
-	Query(q): Query<TimeslotQuery>,
+	Extension(u): Extension<UserId>,
+	Query(q): Query<TimeSlotQuery>,
 ) -> WebResult<Vec<TimeSlot>, &'static str> {
-	let query = match q.id {
-		Some(u) => {
-			bson::doc! {
-				"user_id": &t,
-				"id": BsonUuid::from_uuid_1(u),
-			}
-		}
-		None => {
-			bson::doc! {
-				"user_id": &t,
-			}
+	let data = match spawn_in_current_span(timeslot::query(u.clone(), db, q))
+		.await
+		.unwrap()
+	{
+		Ok(d) => d,
+		Err(e) => {
+			error!(%e, "error while handling request");
+			return NotFine(StatusCode::INTERNAL_SERVER_ERROR, "internal server error");
 		}
 	};
 
-	spawn_in_current_span(async move {
-		let collection = collection_timeslots(&db).await;
+	match check_object_belong_to_userid(data.iter(), &u) {
+		Fine(..) => (),
+		NotFine(c, e) => return NotFine(c, e),
+	}
 
-		let r = crate::handle_db!(collection.find(query, None).await, "database error");
-
-		let ret = r
-			.filter_map(|i| async {
-				if let Ok(x) = i {
-					Some(x)
-				} else {
-					error!("invalid data in database");
-					None
-				}
-			})
-			.map(|v| v.into())
-			.collect::<Vec<_>>()
-			.await;
-
-		match check_object_belong_to_userid(ret.iter(), &t) {
-			Fine(..) => (),
-			NotFine(c, e) => return NotFine(c, e),
-		};
-
-		Fine(StatusCode::OK, ret)
-	})
-	.await
-	.unwrap()
-}
-
-#[derive(Deserialize, Debug)]
-pub struct TimeslotCreate {
-	students: Vec<Student>,
-	subject: String,
-	weekday: Weekday,
-	time: Range<NaiveTime>,
-	timerange: Range<NaiveDate>,
-	timezone: chrono_tz::Tz,
+	Fine(StatusCode::OK, data)
 }
 
 #[derive(Serialize)]
@@ -93,35 +47,22 @@ pub struct TimeslotCreateReturn {
 
 pub async fn create(
 	State(AppState { db, .. }): State<AppState>,
-	Extension(UserId(t)): Extension<UserId>,
+	Extension(u): Extension<UserId>,
 	Json(r): Json<TimeslotCreate>,
 ) -> WebResult<TimeslotCreateReturn, &'static str> {
-	spawn_in_current_span(async move {
-		if r.timerange.start.weekday() != r.weekday {
-			return NotFine(
-				StatusCode::UNPROCESSABLE_ENTITY,
-				"timerange start is the first day.",
-			);
+	let data = match spawn_in_current_span(timeslot::create(u, db, r))
+		.await
+		.unwrap()
+	{
+		Ok(d) => d,
+		Err(e) => {
+			error!(%e, "error while handling request");
+			return NotFine(StatusCode::INTERNAL_SERVER_ERROR, "internal server error");
 		}
+	};
 
-		let id = Uuid::new_v4();
-		let ts = BsonTimeSlot {
-			user_id: t,
-			id: id.into(),
-			subject: r.subject,
-			students: r.students,
-			time: r.time,
-			timerange: r.timerange,
-			weekday: r.weekday,
-			timezone: r.timezone,
-		};
-
-		let collection = collection_timeslots(&db).await;
-
-		crate::handle_db!(collection.insert_one(ts, None).await, "database error");
-
-		Fine(StatusCode::CREATED, TimeslotCreateReturn { id })
-	})
-	.await
-	.unwrap()
+	match data {
+		Fine(c, id) => Fine(c, TimeslotCreateReturn { id }),
+		NotFine(c, e) => NotFine(c, e),
+	}
 }

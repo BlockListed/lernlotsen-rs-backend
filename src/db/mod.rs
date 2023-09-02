@@ -20,7 +20,9 @@ pub async fn get_db(cfg: &Config) -> Database {
 	opts.max_idle_time = Some(Duration::from_secs(300));
 
 	let client = Client::with_options(opts).unwrap();
-	let database = client.default_database().expect("missing default database in uri");
+	let database = client
+		.default_database()
+		.expect("missing default database in uri");
 
 	migrate::migrate(&database).await;
 

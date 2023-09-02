@@ -17,6 +17,7 @@ use crate::configuration::Config;
 
 mod auth;
 mod entry;
+mod handlers;
 mod logic;
 mod timeslot;
 #[macro_use]

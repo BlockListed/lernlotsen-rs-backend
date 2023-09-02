@@ -77,7 +77,10 @@ impl<'a> Iterator for EntriesForTimeslot<'a> {
 	}
 }
 
-pub fn get_time_from_index_and_timeslot(timeslot: &TimeSlot, index: u64) -> Option<DateTime<chrono_tz::Tz>> {
+pub fn get_time_from_index_and_timeslot(
+	timeslot: &TimeSlot,
+	index: u64,
+) -> Option<DateTime<chrono_tz::Tz>> {
 	let days_from_start = chrono::Days::new(7 * index);
 
 	let new_date = timeslot.timerange.start.checked_add_days(days_from_start)?;
@@ -89,16 +92,14 @@ pub fn get_time_from_index_and_timeslot(timeslot: &TimeSlot, index: u64) -> Opti
 	let time = new_date.and_time(timeslot.time.start);
 
 	let local_time = time.and_local_timezone(timeslot.timezone);
-	
+
 	use chrono::LocalResult::*;
 	match local_time {
 		None => {
 			warn!(%time, "could not convert date to local");
 			Option::None
 		}
-		Single(t) => {
-			Some(t)
-		}
+		Single(t) => Some(t),
 		Ambiguous(s, e) => {
 			warn!(%time, start=%s, end=%e, "time in local timezone is ambiguous");
 			Option::None
@@ -159,7 +160,10 @@ pub async fn missing_entries(
 	}
 
 	// All found entries have already been removed.
-	let mut missing_entries = required_entries.into_iter().map(|(i, d)| (i, d.to_rfc3339())).collect::<Vec<_>>();
+	let mut missing_entries = required_entries
+		.into_iter()
+		.map(|(i, d)| (i, d.to_rfc3339()))
+		.collect::<Vec<_>>();
 
 	missing_entries.sort_unstable_by_key(|x| x.0);
 

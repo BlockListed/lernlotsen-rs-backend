@@ -40,22 +40,24 @@ where
 }
 
 impl<O, Er, M: Serialize, E: Serialize> From<Result<O, Er>> for WebResult<M, E>
-	where
-		O: Into<M>,
-		Er: Into<E>,
+where
+	O: Into<M>,
+	Er: Into<E>,
 {
 	fn from(value: Result<O, Er>) -> Self {
 		match value {
 			Ok(m) => WebResult::Fine(StatusCode::OK, m.into()),
-			Err(e) => WebResult::NotFine(StatusCode::INTERNAL_SERVER_ERROR, e.into())
+			Err(e) => WebResult::NotFine(StatusCode::INTERNAL_SERVER_ERROR, e.into()),
 		}
 	}
 }
 
-pub fn cvt_res<O, Er, M: Serialize, E: Serialize>(value: Result<(StatusCode, O), (StatusCode, Er)>) -> WebResult<M, E>
-	where
-		O: Into<M>,
-		Er: Into<E>,
+pub fn cvt_res<O, Er, M: Serialize, E: Serialize>(
+	value: Result<(StatusCode, O), (StatusCode, Er)>,
+) -> WebResult<M, E>
+where
+	O: Into<M>,
+	Er: Into<E>,
 {
 	match value {
 		Ok((c, m)) => WebResult::Fine(c, m.into()),
