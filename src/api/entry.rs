@@ -27,10 +27,10 @@ pub async fn create(
 		Ok(d) => d,
 		Err(e) => {
 			error!(%e, "error while handling request");
-			return NotFine(
+			NotFine(
 				StatusCode::INTERNAL_SERVER_ERROR,
 				json!("internal server error"),
-			);
+			)
 		}
 	}
 }
@@ -75,7 +75,21 @@ pub async fn missing(
 		Ok(d) => d,
 		Err(e) => {
 			error!(%e, "error while handling request");
-			return NotFine(StatusCode::INTERNAL_SERVER_ERROR, "internal server error");
+			NotFine(StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
+		}
+	}
+}
+
+pub async fn next(
+	State(AppState { db, .. }): State<AppState>,
+	Path(q): Path<entry::TimeSlotQuery>,
+	Extension(u): Extension<UserId>,
+) -> WebResult<(u32, String), &'static str> {
+	match spawn_in_current_span(entry::next(u, db, q)).await.unwrap() {
+		Ok(d) => d,
+		Err(e) => {
+			error!(%e, "error while handling request");
+			NotFine(StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
 		}
 	}
 }

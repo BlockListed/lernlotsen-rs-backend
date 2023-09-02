@@ -1,3 +1,4 @@
+use anyhow::Context;
 use axum::http::StatusCode;
 use futures_util::StreamExt;
 use mongodb::Database;
@@ -8,7 +9,9 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::api::auth::UserId;
-use crate::api::logic::entries::{get_time_from_index_and_timeslot, missing_entries, verify_state};
+use crate::api::logic::entries::{
+	get_time_from_index_and_timeslot, missing_entries, next_entry_date_timeslot, verify_state,
+};
 use crate::api::util::WebResult;
 use crate::db::{collection_entries, collection_timeslots};
 
@@ -180,4 +183,38 @@ pub async fn create(
 	};
 
 	Ok(WebResult::Fine(StatusCode::CREATED, "created entry"))
+}
+
+pub async fn next(
+	u: UserId,
+	db: Database,
+	q: TimeSlotQuery,
+) -> anyhow::Result<WebResult<(u32, String), &'static str>> {
+	let timeslots = collection_timeslots(&db).await;
+
+	let ts = match timeslots
+		.find_one(
+			bson::doc! {
+				"user_id": &u.0,
+				"id": q.id,
+			},
+			None,
+		)
+		.await?
+	{
+		Some(d) => d.into(),
+		None => {
+			return Ok(WebResult::NotFine(
+				StatusCode::NOT_FOUND,
+				"timeslot not found",
+			))
+		}
+	};
+
+	Ok(WebResult::Fine(
+		StatusCode::OK,
+		next_entry_date_timeslot(&ts)
+			.map(|(i, d)| (i, d.to_rfc3339()))
+			.context("timezone issue")?,
+	))
 }

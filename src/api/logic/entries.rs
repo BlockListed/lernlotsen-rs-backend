@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
 use axum::http::StatusCode;
-use chrono::NaiveDate;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeZone, Utc};
+use chrono::{Duration, NaiveDate};
+use chrono_tz::Tz;
 use futures_util::StreamExt;
 use mongodb::Database;
 
@@ -168,4 +169,34 @@ pub async fn missing_entries(
 	missing_entries.sort_unstable_by_key(|x| x.0);
 
 	Fine(StatusCode::OK, missing_entries)
+}
+
+pub fn next_entry_date_timeslot(ts: &TimeSlot) -> Option<(u32, DateTime<chrono_tz::Tz>)> {
+	let start = ts.timerange.start.and_time(ts.time.start);
+
+	let start: DateTime<Tz> = ts.timezone.from_local_datetime(&start).single()?;
+
+	let now = Utc::now();
+
+	let since = now - start.with_timezone(&Utc);
+
+	// The first entry hasn't happened yet.
+	// So the first entry is the next entry.
+	if since < Duration::zero() {
+		return Some((0, start));
+	}
+
+	let seconds = since.num_seconds();
+	assert!(seconds >= 0);
+
+	// Number of days from `start` until the next (from now) event
+	let next_seconds = crate::util::round_up_to_multiple(seconds, Duration::weeks(1).num_seconds());
+
+	let next_date = start + Duration::seconds(next_seconds);
+
+	// Will never be negative
+	let index = next_seconds / Duration::weeks(1).num_seconds();
+	assert!(index >= 0);
+
+	Some((index as u32, next_date))
 }

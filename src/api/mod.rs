@@ -54,6 +54,7 @@ pub async fn run(db: Database, cfg: Config) {
 			"/timeslots/:id/entries",
 			get(entry::query).post(entry::create),
 		)
+		.route("/timeslots/:id/entries/next", get(entry::next))
 		.route("/timeslots/:id/entries/missing", get(entry::missing))
 		.nest("/verify", auth::router())
 		.with_state(state)
