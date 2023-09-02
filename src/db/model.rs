@@ -30,6 +30,7 @@ pub struct BaseTimeSlot<UUID, Date> {
 	pub students: Vec<Student>,
 	pub time: Range<NaiveTime>,
 	pub timerange: Range<Date>,
+	/// FRONTEND ONLY DO NOT RELY ON.
 	pub weekday: Weekday,
 	pub timezone: Tz,
 }
