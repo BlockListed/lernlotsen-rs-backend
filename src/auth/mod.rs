@@ -62,6 +62,26 @@ impl Authenticator {
 	}
 
 	pub async fn verify(&self, token: &str) -> Result<String, AuthenticatorError> {
+		match self.inner_verify(token).await {
+			Ok(t) => Ok(t),
+			Err(err) => match err {
+					AuthenticatorError::Invalid(e) => match e {
+						ValidationError::InvalidSignature => {
+							if self.refetch().await {
+								self.inner_verify(token).await
+							} else {
+								Err(AuthenticatorError::Invalid(e))
+							}
+						}
+						e => Err(AuthenticatorError::Invalid(e)),
+					}
+					e => Err(e),
+				
+			}
+		}
+	}
+
+	async fn inner_verify(&self, token: &str) -> Result<String, AuthenticatorError> {
 		let kid = token_kid(token)?.ok_or(AuthenticatorError::Claims("missing kid"))?;
 
 		let jwt = {
