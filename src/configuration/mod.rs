@@ -12,8 +12,6 @@ pub struct Config {
 #[derive(Deserialize)]
 pub struct DatabaseConfig {
 	pub uri: String,
-	pub database: String,
-	pub redisuri: String,
 }
 
 #[derive(Deserialize)]
