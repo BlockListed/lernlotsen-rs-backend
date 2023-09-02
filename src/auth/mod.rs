@@ -1,10 +1,10 @@
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 
 use tokio::sync::RwLock;
 
+use alcoholic_jwt::{token_kid, validate, Validation, ValidationError, JWKS};
 use tracing::debug;
 use url::Url;
-use alcoholic_jwt::{JWKS, Validation, ValidationError, token_kid, validate};
 
 pub struct Authenticator {
 	jwks_url: Url,
@@ -38,7 +38,11 @@ impl Authenticator {
 
 		let jwks = (fetch_keys(&jwks_url).await, Instant::now());
 
-		let validations = Vec::from([Validation::Audience(audience.to_string()), Validation::SubjectPresent, Validation::NotExpired]);
+		let validations = Vec::from([
+			Validation::Audience(audience.to_string()),
+			Validation::SubjectPresent,
+			Validation::NotExpired,
+		]);
 
 		Self {
 			jwks_url,
@@ -54,7 +58,7 @@ impl Authenticator {
 
 	pub async fn refetch(&self) -> bool {
 		if self.cached_jwks.read().await.1.elapsed() < self.max_age {
-			return false
+			return false;
 		}
 
 		self.force_refetch().await;
@@ -65,19 +69,18 @@ impl Authenticator {
 		match self.inner_verify(token).await {
 			Ok(t) => Ok(t),
 			Err(err) => match err {
-					AuthenticatorError::Invalid(e) => match e {
-						ValidationError::InvalidSignature => {
-							if self.refetch().await {
-								self.inner_verify(token).await
-							} else {
-								Err(AuthenticatorError::Invalid(e))
-							}
+				AuthenticatorError::Invalid(e) => match e {
+					ValidationError::InvalidSignature => {
+						if self.refetch().await {
+							self.inner_verify(token).await
+						} else {
+							Err(AuthenticatorError::Invalid(e))
 						}
-						e => Err(AuthenticatorError::Invalid(e)),
 					}
-					e => Err(e),
-				
-			}
+					e => Err(AuthenticatorError::Invalid(e)),
+				},
+				e => Err(e),
+			},
 		}
 	}
 
@@ -87,26 +90,41 @@ impl Authenticator {
 		let jwt = {
 			let cached_jwks_r = &self.cached_jwks.read().await.0;
 
-			let jwk = cached_jwks_r.find(&kid).ok_or(AuthenticatorError::Claims("kid doesn't exist"))?;
+			let jwk = cached_jwks_r
+				.find(&kid)
+				.ok_or(AuthenticatorError::Claims("kid doesn't exist"))?;
 
-			match validate(token, jwk, self.validations.iter().map(clone_validation).collect()) {
+			match validate(
+				token,
+				jwk,
+				self.validations.iter().map(clone_validation).collect(),
+			) {
 				Ok(jwt) => Ok(jwt),
-				Err(e) => {
-					match e {
-						ValidationError::InvalidClaims(invalid) => {
-							Err(AuthenticatorError::ClaimsNotVerifiable(invalid))
-						}
-						e => Err(AuthenticatorError::Invalid(e)),	
+				Err(e) => match e {
+					ValidationError::InvalidClaims(invalid) => {
+						Err(AuthenticatorError::ClaimsNotVerifiable(invalid))
 					}
+					e => Err(AuthenticatorError::Invalid(e)),
 				},
 			}
 		}?;
 
-		let claims = jwt.claims.as_object().ok_or(AuthenticatorError::Claims("jwt claims aren't an object"))?;
+		let claims = jwt
+			.claims
+			.as_object()
+			.ok_or(AuthenticatorError::Claims("jwt claims aren't an object"))?;
 
-		let issuer = claims.get("iss").map(|i| i.as_str()).flatten().ok_or(AuthenticatorError::Claims("invalid iss"))?;
+		let issuer = claims
+			.get("iss")
+			.map(|i| i.as_str())
+			.flatten()
+			.ok_or(AuthenticatorError::Claims("invalid iss"))?;
 
-		let subject = claims.get("sub").map(|i| i.as_str()).flatten().ok_or(AuthenticatorError::Claims("invalid sub"))?;
+		let subject = claims
+			.get("sub")
+			.map(|i| i.as_str())
+			.flatten()
+			.ok_or(AuthenticatorError::Claims("invalid sub"))?;
 
 		Ok(format!("{}:{}", issuer, subject))
 	}
@@ -115,7 +133,8 @@ impl Authenticator {
 async fn fetch_keys(jwks_url: &Url) -> JWKS {
 	debug!(%jwks_url, "fetching jwt keys");
 
-	reqwest::get(jwks_url.as_str()).await
+	reqwest::get(jwks_url.as_str())
+		.await
 		.unwrap()
 		.json()
 		.await

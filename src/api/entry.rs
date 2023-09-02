@@ -1,6 +1,6 @@
-use axum::Extension;
-use axum::extract::{Json, State, Path};
+use axum::extract::{Json, Path, State};
 use axum::http::StatusCode;
+use axum::Extension;
 
 use chrono::{DateTime, Utc};
 use futures_util::StreamExt;
@@ -16,13 +16,13 @@ use crate::api::logic::entries::get_time_from_index_and_timeslot;
 use crate::db::model::{BsonEntry, Entry, EntryState, TimeSlot};
 use crate::db::{collection_entries, collection_timeslots};
 
-use super::AppState;
 use super::auth::UserId;
 use super::logic::check_entries_belong_to_userid;
 use super::util::prelude::*;
+use super::AppState;
 
-use logic::entries::verify_state;
 use logic::entries::missing_entries;
+use logic::entries::verify_state;
 
 #[derive(Deserialize, Debug)]
 pub struct CreateEntry {
@@ -39,16 +39,18 @@ pub async fn create(
 	spawn_in_current_span(async move {
 		let timeslots = collection_timeslots(&db).await;
 
-		let selected_timeslot = match crate::handle_db!(timeslots
-			.find_one(
-				bson::doc! {
-					"user_id": &t,
-					"id": q.id,
-				},
-				None,
-			)
-			.await, json!("database error"))
-		{
+		let selected_timeslot = match crate::handle_db!(
+			timeslots
+				.find_one(
+					bson::doc! {
+						"user_id": &t,
+						"id": q.id,
+					},
+					None,
+				)
+				.await,
+			json!("database error")
+		) {
 			Some(x) => x,
 			None => {
 				return NotFine(StatusCode::NOT_FOUND, json!("timeslot not found"));
@@ -103,7 +105,11 @@ pub struct TimeSlotQuery {
 	id: Uuid,
 }
 
-pub async fn query(State(AppState { db, .. }): State<AppState>, Path(q): Path<TimeSlotQuery>, Extension(UserId(t)): Extension<UserId>) -> WebResult<Vec<(Entry, DateTime<Utc>)>, &'static str> {
+pub async fn query(
+	State(AppState { db, .. }): State<AppState>,
+	Path(q): Path<TimeSlotQuery>,
+	Extension(UserId(t)): Extension<UserId>,
+) -> WebResult<Vec<(Entry, DateTime<Utc>)>, &'static str> {
 	spawn_in_current_span(async move {
 		let timeslots = collection_timeslots(&db).await;
 
@@ -142,7 +148,7 @@ pub async fn query(State(AppState { db, .. }): State<AppState>, Path(q): Path<Ti
 			})
 			.collect::<Vec<_>>()
 			.await;
-		
+
 		match check_entries_belong_to_userid(res.iter().map(|i| &i.0), &t) {
 			Fine( .. ) => (),
 			NotFine(c, e) => return NotFine(c, e)
@@ -154,16 +160,26 @@ pub async fn query(State(AppState { db, .. }): State<AppState>, Path(q): Path<Ti
 	.unwrap()
 }
 
-
-
-pub async fn missing(State(AppState { db, .. }): State<AppState>, Path(q): Path<TimeSlotQuery>, Extension(UserId(t)): Extension<UserId>) -> WebResult<Vec<(usize, DateTime<Utc>)>, &'static str> {
+pub async fn missing(
+	State(AppState { db, .. }): State<AppState>,
+	Path(q): Path<TimeSlotQuery>,
+	Extension(UserId(t)): Extension<UserId>,
+) -> WebResult<Vec<(usize, DateTime<Utc>)>, &'static str> {
 	spawn_in_current_span(async move {
 		let timeslots = collection_timeslots(&db).await;
 
-		let timeslot = match crate::handle_db!(timeslots.find_one(Some(bson::doc! {
-			"user_id": t,
-			"id": q.id,
-		}), None).await, "database error") {
+		let timeslot = match crate::handle_db!(
+			timeslots
+				.find_one(
+					Some(bson::doc! {
+						"user_id": t,
+						"id": q.id,
+					}),
+					None
+				)
+				.await,
+			"database error"
+		) {
 			Some(v) => v,
 			None => {
 				return NotFine(StatusCode::NOT_FOUND, "timeslot not found");
@@ -171,5 +187,7 @@ pub async fn missing(State(AppState { db, .. }): State<AppState>, Path(q): Path<
 		};
 
 		missing_entries(timeslot, &db).await
-	}).await.unwrap()
+	})
+	.await
+	.unwrap()
 }

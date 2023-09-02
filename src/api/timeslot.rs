@@ -1,12 +1,12 @@
 use std::ops::Range;
 
-use axum::Extension;
 use axum::extract::{Json, Query, State};
 use axum::http::StatusCode;
+use axum::Extension;
 
 use bson::Uuid as BsonUuid;
 
-use chrono::{NaiveDate, NaiveTime, Weekday, Datelike};
+use chrono::{Datelike, NaiveDate, NaiveTime, Weekday};
 
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
@@ -19,9 +19,9 @@ use crate::db::model::{BsonTimeSlot, Student, TimeSlot};
 
 use crate::api::util::prelude::*;
 
-use super::AppState;
 use super::auth::UserId;
 use super::logic::check_timeslots_belong_to_userid;
+use super::AppState;
 
 #[derive(Deserialize, Debug)]
 pub struct TimeslotQuery {
@@ -52,20 +52,21 @@ pub async fn query(
 
 		let r = crate::handle_db!(collection.find(query, None).await, "database error");
 
-		let ret = r.filter_map(|i| async {
-					if let Ok(x) = i {
-						Some(x)
-					} else {
-						error!("invalid data in database");
-						None
-					}
-				})
-				.map(|v| v.into())
-				.collect::<Vec<_>>()
-				.await;
+		let ret = r
+			.filter_map(|i| async {
+				if let Ok(x) = i {
+					Some(x)
+				} else {
+					error!("invalid data in database");
+					None
+				}
+			})
+			.map(|v| v.into())
+			.collect::<Vec<_>>()
+			.await;
 
 		match check_timeslots_belong_to_userid(ret.iter(), &t) {
-			Fine( .. ) => (),
+			Fine(..) => (),
 			NotFine(c, e) => return NotFine(c, e),
 		};
 
@@ -96,9 +97,12 @@ pub async fn create(
 ) -> WebResult<TimeslotCreateReturn, &'static str> {
 	spawn_in_current_span(async move {
 		if r.timerange.start.weekday() != r.weekday {
-			return NotFine(StatusCode::UNPROCESSABLE_ENTITY, "timerange start is the first day.");
+			return NotFine(
+				StatusCode::UNPROCESSABLE_ENTITY,
+				"timerange start is the first day.",
+			);
 		}
-	
+
 		let id = Uuid::new_v4();
 		let ts = BsonTimeSlot {
 			user_id: t,

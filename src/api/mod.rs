@@ -32,7 +32,14 @@ pub struct AppState {
 pub async fn run(db: Database, cfg: Config) {
 	let hosturl = cfg.hosturl.clone();
 
-	let auth = Arc::new(Authenticator::new(cfg.auth.domain.as_str(), Duration::from_secs(1800), &cfg.auth.audience).await);
+	let auth = Arc::new(
+		Authenticator::new(
+			cfg.auth.domain.as_str(),
+			Duration::from_secs(1800),
+			&cfg.auth.audience,
+		)
+		.await,
+	);
 
 	let state = AppState {
 		db,
@@ -42,11 +49,17 @@ pub async fn run(db: Database, cfg: Config) {
 
 	let app = Router::new()
 		.route("/timeslots", get(timeslot::query).post(timeslot::create))
-		.route("/timeslots/:id/entries", get(entry::query).post(entry::create))
+		.route(
+			"/timeslots/:id/entries",
+			get(entry::query).post(entry::create),
+		)
 		.route("/timeslots/:id/entries/missing", get(entry::missing))
 		.nest("/verify", auth::router())
 		.with_state(state)
-		.layer(axum::middleware::from_fn_with_state(auth, auth::auth_middleware))
+		.layer(axum::middleware::from_fn_with_state(
+			auth,
+			auth::auth_middleware,
+		))
 		.layer(
 			TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
 				let request_id = request
