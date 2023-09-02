@@ -29,7 +29,7 @@ async fn migrate(db: &Database) {
 
 	let timeslots_id_index = IndexModel::builder()
 		.keys(bson::doc! {
-			"user_Id": 1,
+			"user_id": 1,
 			"id": 1,
 		})
 		.options(
