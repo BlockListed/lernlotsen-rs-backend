@@ -9,6 +9,7 @@ use uuid::Uuid;
 use crate::db::model::TimeSlot;
 
 use crate::api::util::prelude::*;
+use crate::try_web;
 
 use super::auth::UserId;
 use super::logic::check_object_belong_to_userid;
@@ -32,10 +33,7 @@ pub async fn query(
 		}
 	};
 
-	match check_object_belong_to_userid(data.iter(), &u) {
-		Fine(..) => (),
-		NotFine(c, e) => return NotFine(c, e),
-	}
+	try_web!(check_object_belong_to_userid(data.iter(), &u));
 
 	Fine(StatusCode::OK, data)
 }

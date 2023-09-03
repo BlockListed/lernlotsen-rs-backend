@@ -12,6 +12,7 @@ use super::logic::check_object_belong_to_userid;
 use super::util::prelude::*;
 use super::AppState;
 
+use crate::try_web;
 use crate::db::model::Entry;
 
 pub async fn create(
@@ -53,9 +54,7 @@ pub async fn query(
 
 	match data {
 		Fine(c, d) => {
-			if let NotFine(c, e) = check_object_belong_to_userid(d.iter().map(|i| &i.0), &u) {
-				return NotFine(c, e);
-			}
+			try_web!(check_object_belong_to_userid(d.iter().map(|i| &i.0), &u));
 
 			Fine(c, d)
 		}
@@ -67,7 +66,7 @@ pub async fn missing(
 	State(AppState { db, .. }): State<AppState>,
 	Path(q): Path<entry::TimeSlotQuery>,
 	Extension(u): Extension<UserId>,
-) -> WebResult<Vec<(usize, String)>, &'static str> {
+) -> WebResult<Vec<(u32, String)>, &'static str> {
 	match spawn_in_current_span(entry::missing(u, db, q))
 		.await
 		.unwrap()

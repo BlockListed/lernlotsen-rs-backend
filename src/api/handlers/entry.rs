@@ -81,7 +81,7 @@ pub async fn missing(
 	u: UserId,
 	db: Database,
 	q: TimeSlotQuery,
-) -> anyhow::Result<WebResult<Vec<(usize, String)>, &'static str>> {
+) -> anyhow::Result<WebResult<Vec<(u32, String)>, &'static str>> {
 	let timeslots = collection_timeslots(&db).await;
 
 	let timeslot = match timeslots

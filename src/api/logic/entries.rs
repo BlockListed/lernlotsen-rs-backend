@@ -109,7 +109,7 @@ pub fn get_time_from_index_and_timeslot(
 pub async fn missing_entries(
 	timeslot: BsonTimeSlot,
 	db: &Database,
-) -> anyhow::Result<Vec<(usize, String)>> {
+) -> anyhow::Result<Vec<(u32, String)>> {
 	let entries = collection_entries(db).await;
 
 	let timeslot_id = timeslot.id;
@@ -159,7 +159,7 @@ pub async fn missing_entries(
 	// All found entries have already been removed.
 	let mut missing_entries = required_entries
 		.into_iter()
-		.map(|(i, d)| (i, d.to_rfc3339()))
+		.map(|(i, d)| (i as u32, d.to_rfc3339()))
 		.collect::<Vec<_>>();
 
 	missing_entries.sort_unstable_by_key(|x| x.0);

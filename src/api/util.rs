@@ -51,6 +51,15 @@ where
 	}
 }
 
+#[macro_export]
+macro_rules! try_web {
+	($res:expr) => {
+		match $res {
+			$crate::api::util::WebResult::Fine(c, m) => (c, m),
+			$crate::api::util::WebResult::NotFine(c, m) => return $crate::api::util::WebResult::NotFine(c, m),
+		}
+	};
+}
 
 pub fn spawn_in_current_span<T: Send + 'static>(
 	f: impl Future<Output = T> + Send + 'static,
