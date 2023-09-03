@@ -7,8 +7,8 @@ use mongodb::Database;
 use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::auth::UserId;
 use crate::api::util::prelude::*;
+use crate::auth::UserId;
 use crate::db::model::{BsonTimeSlot, Student, TimeSlot};
 use crate::db::queries::timeslot::{get_timeslot_by_id, get_timeslots, insert_timeslot};
 
@@ -17,24 +17,18 @@ pub struct TimeSlotQuery {
 	id: Option<Uuid>,
 }
 
-pub async fn query(
-	u: UserId,
-	db: Database,
-	q: TimeSlotQuery,
-) -> anyhow::Result<Vec<TimeSlot>> {
+pub async fn query(u: UserId, db: Database, q: TimeSlotQuery) -> anyhow::Result<Vec<TimeSlot>> {
 	let res = match q.id {
 		Some(id) => {
 			let mut output = Vec::new();
-			
+
 			if let Some(ts) = get_timeslot_by_id(db, u, id).await? {
 				output.push(ts)
 			}
-			
+
 			output
 		}
-		None => {
-			get_timeslots(db, u).await?
-		}
+		None => get_timeslots(db, u).await?,
 	};
 
 	Ok(res)

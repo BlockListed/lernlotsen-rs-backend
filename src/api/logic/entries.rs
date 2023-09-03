@@ -125,7 +125,8 @@ pub async fn missing_entries(
 		.map(|x| *x as u32)
 		.collect::<Vec<_>>();
 
-	let found_indexes = get_entries_with_index_in(db.clone(), u, required_indexes).await?
+	let found_indexes = get_entries_with_index_in(db.clone(), u, required_indexes)
+		.await?
 		.drain(..)
 		.map(|v| v.index)
 		.collect::<Vec<_>>();

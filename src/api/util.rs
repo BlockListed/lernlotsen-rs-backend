@@ -46,7 +46,9 @@ where
 	fn from(value: Result<O, DontCare>) -> Self {
 		match value {
 			Ok(m) => WebResult::Fine(StatusCode::OK, m.into()),
-			Err(_) => WebResult::NotFine(StatusCode::INTERNAL_SERVER_ERROR, "internal server error"),
+			Err(_) => {
+				WebResult::NotFine(StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
+			}
 		}
 	}
 }
@@ -56,7 +58,9 @@ macro_rules! try_web {
 	($res:expr) => {
 		match $res {
 			$crate::api::util::WebResult::Fine(c, m) => (c, m),
-			$crate::api::util::WebResult::NotFine(c, m) => return $crate::api::util::WebResult::NotFine(c, m),
+			$crate::api::util::WebResult::NotFine(c, m) => {
+				return $crate::api::util::WebResult::NotFine(c, m)
+			}
 		}
 	};
 }

@@ -7,11 +7,11 @@ use uuid::Uuid;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::auth::UserId;
 use crate::api::logic::entries::{
 	get_time_from_index_and_timeslot, missing_entries, next_entry_date_timeslot, verify_state,
 };
 use crate::api::util::WebResult;
+use crate::auth::UserId;
 use crate::db::queries::entry::{get_entries_by_timeslot_id, insert_entry, InsertEntryError};
 use crate::db::queries::timeslot::get_timeslot_by_id;
 
@@ -27,8 +27,7 @@ pub async fn query(
 	db: Database,
 	q: TimeSlotQuery,
 ) -> anyhow::Result<WebResult<Vec<(Entry, String)>, &'static str>> {
-	let timeslot: TimeSlot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await?
-	{
+	let timeslot: TimeSlot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await? {
 		Some(x) => x.into(),
 		None => {
 			return Ok(WebResult::NotFine(
@@ -59,8 +58,7 @@ pub async fn missing(
 	db: Database,
 	q: TimeSlotQuery,
 ) -> anyhow::Result<WebResult<Vec<(u32, String)>, &'static str>> {
-	let timeslot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await?
-	{
+	let timeslot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await? {
 		Some(v) => v,
 		None => {
 			return Ok(WebResult::NotFine(
@@ -70,7 +68,10 @@ pub async fn missing(
 		}
 	};
 
-	Ok(WebResult::Fine(StatusCode::OK, missing_entries(db, u, timeslot.into()).await?))
+	Ok(WebResult::Fine(
+		StatusCode::OK,
+		missing_entries(db, u, timeslot.into()).await?,
+	))
 }
 
 #[derive(Deserialize, Debug)]
@@ -85,8 +86,7 @@ pub async fn create(
 	r: CreateEntry,
 	q: TimeSlotQuery,
 ) -> anyhow::Result<WebResult<&'static str, Value>> {
-	let selected_timeslot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await?
-	{
+	let selected_timeslot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await? {
 		Some(x) => x,
 		None => {
 			return Ok(WebResult::NotFine(
@@ -128,7 +128,7 @@ pub async fn create(
 			InsertEntryError::Other(e) => {
 				Err(e)?;
 			}
-		}
+		},
 	};
 
 	Ok(WebResult::Fine(StatusCode::CREATED, "created entry"))
@@ -139,8 +139,7 @@ pub async fn next(
 	db: Database,
 	q: TimeSlotQuery,
 ) -> anyhow::Result<WebResult<(u32, String), &'static str>> {
-	let ts = match get_timeslot_by_id(db, u, q.id).await?
-	{
+	let ts = match get_timeslot_by_id(db, u, q.id).await? {
 		Some(d) => d.into(),
 		None => {
 			return Ok(WebResult::NotFine(

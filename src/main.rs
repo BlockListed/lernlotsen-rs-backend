@@ -1,4 +1,4 @@
-use tracing_bunyan_formatter::{JsonStorageLayer, BunyanFormattingLayer};
+use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter};
 
 use db::get_db;
@@ -14,8 +14,8 @@ async fn main() {
 	let _ = dotenvy::dotenv();
 
 	{
-		let env_filter = EnvFilter::try_from_default_env()
-		.unwrap_or_else(|_| "info,tower_http=debug".into());
+		let env_filter =
+			EnvFilter::try_from_default_env().unwrap_or_else(|_| "info,tower_http=debug".into());
 
 		let formatting_layer = BunyanFormattingLayer::new("lernlotsen".into(), std::io::stdout);
 

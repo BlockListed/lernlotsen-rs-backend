@@ -2,12 +2,16 @@ use bson::doc;
 use futures_util::StreamExt;
 use mongodb::Database;
 use tokio::spawn;
-use tracing::{error, debug};
+use tracing::{debug, error};
 
+use crate::db::model::{BsonEntry, Entry};
 use crate::{auth::UserId, db::collection_entries};
-use crate::db::model::{Entry, BsonEntry};
 
-pub async fn get_entries_by_timeslot_id(db: Database, u: UserId, id: uuid::Uuid) -> anyhow::Result<Vec<Entry>> {
+pub async fn get_entries_by_timeslot_id(
+	db: Database,
+	u: UserId,
+	id: uuid::Uuid,
+) -> anyhow::Result<Vec<Entry>> {
 	let query = doc! {
 		"timeslot_id": id,
 		"user_id": u.0,
@@ -16,7 +20,9 @@ pub async fn get_entries_by_timeslot_id(db: Database, u: UserId, id: uuid::Uuid)
 	spawn(async move {
 		let entries = collection_entries(&db).await;
 
-		Ok(entries.find(query, None).await?
+		Ok(entries
+			.find(query, None)
+			.await?
 			.filter_map(|v| async {
 				match v {
 					Ok(x) => Some(x),
@@ -28,12 +34,17 @@ pub async fn get_entries_by_timeslot_id(db: Database, u: UserId, id: uuid::Uuid)
 			})
 			.map(|v| v.into())
 			.collect()
-			.await
-		)
-	}).await.unwrap()
+			.await)
+	})
+	.await
+	.unwrap()
 }
 
-pub async fn get_entries_with_index_in(db: Database, u: UserId, indexes: Vec<u32>) -> anyhow::Result<Vec<Entry>> {
+pub async fn get_entries_with_index_in(
+	db: Database,
+	u: UserId,
+	indexes: Vec<u32>,
+) -> anyhow::Result<Vec<Entry>> {
 	let query = doc! {
 		"user_id": u.0,
 		"index": {
@@ -44,22 +55,24 @@ pub async fn get_entries_with_index_in(db: Database, u: UserId, indexes: Vec<u32
 	spawn(async move {
 		let entries = collection_entries(&db).await;
 
-		Ok(
-			entries.find(query, None).await?
-				.filter_map(|v| async {
-					match v {
-						Ok(x) => Some(x),
-						Err(e) => {
-							error!(%e, "invalid data in database");
-							None
-						}
-					} 
-				})
-				.map(|v| v.into())
-				.collect()
-				.await
-		)
-	}).await.unwrap()
+		Ok(entries
+			.find(query, None)
+			.await?
+			.filter_map(|v| async {
+				match v {
+					Ok(x) => Some(x),
+					Err(e) => {
+						error!(%e, "invalid data in database");
+						None
+					}
+				}
+			})
+			.map(|v| v.into())
+			.collect()
+			.await)
+	})
+	.await
+	.unwrap()
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -75,7 +88,9 @@ pub async fn insert_entry(db: Database, entry: BsonEntry) -> Result<(), InsertEn
 		let entries = collection_entries(&db).await;
 
 		entries.insert_one(entry, None).await
-	}).await.unwrap();
+	})
+	.await
+	.unwrap();
 
 	if let Err(e) = res {
 		use mongodb::error::{ErrorKind, WriteError, WriteFailure};
@@ -84,7 +99,7 @@ pub async fn insert_entry(db: Database, entry: BsonEntry) -> Result<(), InsertEn
 			ErrorKind::Write(WriteFailure::WriteError(WriteError { code: 11000, .. })) => {
 				debug!("Duplicated entry.");
 
-				return Err(InsertEntryError::Duplicate)
+				return Err(InsertEntryError::Duplicate);
 			}
 			_ => {
 				let anyerr: anyhow::Error = e.into();

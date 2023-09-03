@@ -25,8 +25,6 @@ async fn verify(Extension(UserId(u)): Extension<UserId>) -> (StatusCode, String)
 	(StatusCode::OK, format!("health check ok - {}", u))
 }
 
-
-
 pub async fn auth_middleware<B>(
 	State(auth): State<Arc<Authenticator>>,
 	TypedHeader(cookies): TypedHeader<Cookie>,

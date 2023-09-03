@@ -1,2 +1,2 @@
-pub mod timeslot;
 pub mod entry;
+pub mod timeslot;
