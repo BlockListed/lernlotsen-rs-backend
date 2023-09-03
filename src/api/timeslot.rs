@@ -10,8 +10,8 @@ use crate::db::model::TimeSlot;
 
 use crate::api::util::prelude::*;
 use crate::try_web;
+use crate::auth::UserId;
 
-use super::auth::UserId;
 use super::logic::check_object_belong_to_userid;
 use super::AppState;
 

@@ -12,7 +12,7 @@ use reqwest::StatusCode;
 use tracing::warn;
 
 use crate::api::util::WebResult;
-use crate::auth::{Authenticator, AuthenticatorError};
+use crate::auth::{Authenticator, AuthenticatorError, UserId};
 
 use super::AppState;
 
@@ -25,8 +25,7 @@ async fn verify(Extension(UserId(u)): Extension<UserId>) -> (StatusCode, String)
 	(StatusCode::OK, format!("health check ok - {}", u))
 }
 
-#[derive(Clone)]
-pub struct UserId(pub String);
+
 
 pub async fn auth_middleware<B>(
 	State(auth): State<Arc<Authenticator>>,
@@ -41,9 +40,9 @@ pub async fn auth_middleware<B>(
 	let auth_status = auth.verify(auth_token).await;
 
 	match auth_status {
-		Ok(t) => {
+		Ok(u) => {
 			let exts = req.extensions_mut();
-			exts.insert(UserId(t));
+			exts.insert(u);
 		}
 		Err(e) => match e {
 			AuthenticatorError::ClaimsNotVerifiable(v) => {

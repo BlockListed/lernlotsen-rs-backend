@@ -32,6 +32,9 @@ pub enum AuthenticatorError {
 	Claims(&'static str),
 }
 
+#[derive(Clone)]
+pub struct UserId(pub String);
+
 impl Authenticator {
 	pub async fn new(jwks_domain: &str, max_age: Duration, audience: &str) -> Self {
 		let jwks_url = get_jwks_url(jwks_domain);
@@ -65,7 +68,7 @@ impl Authenticator {
 		true
 	}
 
-	pub async fn verify(&self, token: &str) -> Result<String, AuthenticatorError> {
+	pub async fn verify(&self, token: &str) -> Result<UserId, AuthenticatorError> {
 		match self.inner_verify(token).await {
 			Ok(t) => Ok(t),
 			Err(err) => match err {
@@ -84,7 +87,7 @@ impl Authenticator {
 		}
 	}
 
-	async fn inner_verify(&self, token: &str) -> Result<String, AuthenticatorError> {
+	async fn inner_verify(&self, token: &str) -> Result<UserId, AuthenticatorError> {
 		let kid = token_kid(token)?.ok_or(AuthenticatorError::Claims("missing kid"))?;
 
 		let jwt = {
@@ -124,7 +127,7 @@ impl Authenticator {
 			.and_then(|i| i.as_str())
 			.ok_or(AuthenticatorError::Claims("invalid sub"))?;
 
-		Ok(format!("{}:{}", issuer, subject))
+		Ok(UserId(format!("{}:{}", issuer, subject)))
 	}
 }
 

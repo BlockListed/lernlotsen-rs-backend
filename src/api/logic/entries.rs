@@ -3,13 +3,13 @@ use std::collections::HashMap;
 use chrono::{DateTime, TimeZone, Utc};
 use chrono::{Duration, NaiveDate};
 use chrono_tz::Tz;
-use futures_util::StreamExt;
 use mongodb::Database;
 
-use tracing::{debug, error, trace, warn};
+use tracing::{debug, trace, warn};
 
-use crate::db::collection_entries;
-use crate::db::model::{BsonTimeSlot, EntryState, Student, TimeSlot};
+use crate::auth::UserId;
+use crate::db::model::{EntryState, Student, TimeSlot};
+use crate::db::queries::entry::get_entries_with_index_in;
 
 pub fn verify_state(state: &EntryState, timeslot_students: &[Student]) -> Result<(), Vec<Student>> {
 	let mut invalid_students = Vec::new();
@@ -35,10 +35,10 @@ pub fn verify_state(state: &EntryState, timeslot_students: &[Student]) -> Result
 pub struct EntriesForTimeslot<'a> {
 	timeslot: &'a TimeSlot,
 	until: NaiveDate,
-	index: u64,
+	index: u32,
 }
 
-pub fn get_entries(timeslot: &TimeSlot) -> EntriesForTimeslot {
+fn get_entries(timeslot: &TimeSlot) -> EntriesForTimeslot {
 	let now = Utc::now().date_naive();
 
 	trace!(until=%now, "calculating missing entries");
@@ -78,9 +78,9 @@ impl<'a> Iterator for EntriesForTimeslot<'a> {
 
 pub fn get_time_from_index_and_timeslot(
 	timeslot: &TimeSlot,
-	index: u64,
+	index: u32,
 ) -> Option<DateTime<chrono_tz::Tz>> {
-	let days_from_start = chrono::Days::new(7 * index);
+	let days_from_start = chrono::Days::new((7 * index) as u64);
 
 	let new_date = timeslot.timerange.start.checked_add_days(days_from_start)?;
 
@@ -107,13 +107,10 @@ pub fn get_time_from_index_and_timeslot(
 }
 
 pub async fn missing_entries(
-	timeslot: BsonTimeSlot,
-	db: &Database,
+	db: Database,
+	u: UserId,
+	timeslot: TimeSlot,
 ) -> anyhow::Result<Vec<(u32, String)>> {
-	let entries = collection_entries(db).await;
-
-	let timeslot_id = timeslot.id;
-
 	let mut required_entries = get_entries(&timeslot.into())
 		.enumerate()
 		.collect::<HashMap<_, _>>();
@@ -125,32 +122,13 @@ pub async fn missing_entries(
 
 	let required_indexes = required_entries
 		.keys()
-		.map(|x| *x as i32)
+		.map(|x| *x as u32)
 		.collect::<Vec<_>>();
 
-	let found_indexes =
-		entries
-			.find(
-				bson::doc! {
-					"timeslot_id": timeslot_id,
-					"index": {
-						"$in": required_indexes,
-					}
-				},
-				None
-			)
-			.await?
-	.filter_map(|v| async {
-		match v {
-			Ok(x) => Some(x.index),
-			Err(e) => {
-				error!(%e, "invalid data in database");
-				None
-			}
-		}
-	})
-	.collect::<Vec<_>>()
-	.await;
+	let found_indexes = get_entries_with_index_in(db.clone(), u, required_indexes).await?
+		.drain(..)
+		.map(|v| v.index)
+		.collect::<Vec<_>>();
 
 	for i in found_indexes {
 		required_entries.remove(&(i as usize));

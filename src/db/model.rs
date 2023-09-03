@@ -88,13 +88,13 @@ impl From<BsonEntry> for Entry {
 	}
 }
 
-pub trait HasUserId<'a> {
-	fn user_id(&'a self) -> &'a str;
+pub trait HasUserId {
+	fn user_id<'a>(&'a self) -> &'a str;
 	fn identifier(&self) -> String;
 }
 
-impl<'a, U: Display, D> HasUserId<'a> for BaseTimeSlot<U, D> {
-	fn user_id(&'a self) -> &'a str {
+impl<U: Display, D> HasUserId for BaseTimeSlot<U, D> {
+	fn user_id<'a>(&'a self) -> &'a str {
 		&self.user_id
 	}
 
@@ -103,8 +103,8 @@ impl<'a, U: Display, D> HasUserId<'a> for BaseTimeSlot<U, D> {
 	}
 }
 
-impl<'a, U: Display> HasUserId<'a> for BaseEntry<U> {
-	fn user_id(&'a self) -> &'a str {
+impl<U: Display> HasUserId for BaseEntry<U> {
+	fn user_id<'a>(&'a self) -> &'a str {
 		&self.user_id
 	}
 

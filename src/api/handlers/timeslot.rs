@@ -3,16 +3,14 @@ use std::ops::Range;
 use axum::http::StatusCode;
 use chrono::{Datelike, NaiveDate, NaiveTime, Weekday};
 use chrono_tz::Tz;
-use futures_util::StreamExt;
 use mongodb::Database;
 use serde::Deserialize;
-use tracing::error;
 use uuid::Uuid;
 
-use crate::api::auth::UserId;
+use crate::auth::UserId;
 use crate::api::util::prelude::*;
-use crate::db::collection_timeslots;
 use crate::db::model::{BsonTimeSlot, Student, TimeSlot};
+use crate::db::queries::timeslot::{get_timeslot_by_id, get_timeslots, insert_timeslot};
 
 #[derive(Deserialize, Debug)]
 pub struct TimeSlotQuery {
@@ -20,42 +18,26 @@ pub struct TimeSlotQuery {
 }
 
 pub async fn query(
-	user_id: UserId,
+	u: UserId,
 	db: Database,
 	q: TimeSlotQuery,
 ) -> anyhow::Result<Vec<TimeSlot>> {
-	let query = match q.id {
-		Some(u) => {
-			bson::doc! {
-				"user_id": &user_id.0,
-				"id": u,
+	let res = match q.id {
+		Some(id) => {
+			let mut output = Vec::new();
+			
+			if let Some(ts) = get_timeslot_by_id(db, u, id).await? {
+				output.push(ts)
 			}
+			
+			output
 		}
 		None => {
-			bson::doc! {
-				"user_id": &user_id.0,
-			}
+			get_timeslots(db, u).await?
 		}
 	};
 
-	let collection = collection_timeslots(&db).await;
-
-	let r = collection.find(query, None).await?;
-
-	let ret = r
-		.filter_map(|i| async {
-			if let Ok(x) = i {
-				Some(x)
-			} else {
-				error!("invalid data in database");
-				None
-			}
-		})
-		.map(|v| v.into())
-		.collect::<Vec<_>>()
-		.await;
-
-	Ok(ret)
+	Ok(res)
 }
 
 #[derive(Deserialize, Debug)]
@@ -92,9 +74,7 @@ pub async fn create(
 		timezone: r.timezone,
 	};
 
-	let collection = collection_timeslots(&db).await;
-
-	collection.insert_one(ts, None).await?;
+	insert_timeslot(db, ts).await?;
 
 	Ok(Fine(StatusCode::CREATED, id))
 }

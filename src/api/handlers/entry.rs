@@ -1,6 +1,5 @@
 use anyhow::Context;
 use axum::http::StatusCode;
-use futures_util::StreamExt;
 use mongodb::Database;
 use tracing::{debug, error};
 use uuid::Uuid;
@@ -8,12 +7,13 @@ use uuid::Uuid;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::api::auth::UserId;
+use crate::auth::UserId;
 use crate::api::logic::entries::{
 	get_time_from_index_and_timeslot, missing_entries, next_entry_date_timeslot, verify_state,
 };
 use crate::api::util::WebResult;
-use crate::db::{collection_entries, collection_timeslots};
+use crate::db::queries::entry::{get_entries_by_timeslot_id, insert_entry, InsertEntryError};
+use crate::db::queries::timeslot::get_timeslot_by_id;
 
 use crate::db::model::{BsonEntry, Entry, EntryState, TimeSlot};
 
@@ -27,17 +27,7 @@ pub async fn query(
 	db: Database,
 	q: TimeSlotQuery,
 ) -> anyhow::Result<WebResult<Vec<(Entry, String)>, &'static str>> {
-	let timeslots = collection_timeslots(&db).await;
-
-	let timeslot: TimeSlot = match timeslots
-		.find_one(
-			bson::doc! {
-				"user_id": &u.0,
-				"id": q.id,
-			},
-			None,
-		)
-		.await?
+	let timeslot: TimeSlot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await?
 	{
 		Some(x) => x.into(),
 		None => {
@@ -48,31 +38,18 @@ pub async fn query(
 		}
 	};
 
-	let entries = collection_entries(&db).await;
+	let res: Vec<_> = get_entries_by_timeslot_id(db, u, timeslot.id).await?
+		.drain(..)
+		.filter_map(|v| {
+			let entry: Entry = v.into();
+			let Some(time) = get_time_from_index_and_timeslot(&timeslot, entry.index) else {
+				error!(timeslot=%entry.timeslot_id, index=%entry.index, "date of entry in database overflows the chrono limits");
+				return None;
+			};
 
-	let res: Vec<_> = entries.find(bson::doc! {
-			"timeslot_id": timeslot.id,
-		}, None).await?
-			.filter_map(|v| async {
-				match v {
-					Ok(x) => Some(x),
-					Err(e) => {
-						error!(%e, "invalid data in database");
-						None
-					}
-				}
-			})
-			.filter_map(|v| async {
-				let entry: Entry = v.into();
-				let Some(time) = get_time_from_index_and_timeslot(&timeslot, entry.index as u64) else {
-					error!(timeslot=%entry.timeslot_id, index=%entry.index, "date of entry in database overflows the chrono limits");
-					return None;
-				};
-
-				Some((entry, time.to_rfc3339()))
-			})
-			.collect::<Vec<_>>()
-			.await;
+			Some((entry, time.to_rfc3339()))
+		})
+		.collect::<Vec<_>>();
 
 	Ok(WebResult::Fine(StatusCode::OK, res))
 }
@@ -82,17 +59,7 @@ pub async fn missing(
 	db: Database,
 	q: TimeSlotQuery,
 ) -> anyhow::Result<WebResult<Vec<(u32, String)>, &'static str>> {
-	let timeslots = collection_timeslots(&db).await;
-
-	let timeslot = match timeslots
-		.find_one(
-			Some(bson::doc! {
-				"user_id": u.0,
-				"id": q.id,
-			}),
-			None,
-		)
-		.await?
+	let timeslot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await?
 	{
 		Some(v) => v,
 		None => {
@@ -103,7 +70,7 @@ pub async fn missing(
 		}
 	};
 
-	Ok(WebResult::Fine(StatusCode::OK, missing_entries(timeslot, &db).await?))
+	Ok(WebResult::Fine(StatusCode::OK, missing_entries(db, u, timeslot.into()).await?))
 }
 
 #[derive(Deserialize, Debug)]
@@ -118,17 +85,7 @@ pub async fn create(
 	r: CreateEntry,
 	q: TimeSlotQuery,
 ) -> anyhow::Result<WebResult<&'static str, Value>> {
-	let timeslots = collection_timeslots(&db).await;
-
-	let selected_timeslot = match timeslots
-		.find_one(
-			bson::doc! {
-				"user_id": &u.0,
-				"id": q.id,
-			},
-			None,
-		)
-		.await?
+	let selected_timeslot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await?
 	{
 		Some(x) => x,
 		None => {
@@ -148,7 +105,7 @@ pub async fn create(
 		Ok(_) => BsonEntry {
 			user_id: u.0,
 			index: r.index,
-			timeslot_id: selected_timeslot.id,
+			timeslot_id: selected_timeslot.id.into(),
 			state: r.state,
 		},
 		Err(s) => {
@@ -162,22 +119,14 @@ pub async fn create(
 		}
 	};
 
-	let entries = collection_entries(&db).await;
-
-	if let Err(e) = entries.insert_one(entry, None).await {
-		use mongodb::error::{ErrorKind, WriteError, WriteFailure};
-
-		match *e.kind {
-			ErrorKind::Write(WriteFailure::WriteError(WriteError { code: 11000, .. })) => {
-				debug!("Duplicated entry.");
-
-				return Ok(WebResult::NotFine(
-					StatusCode::CONFLICT,
-					json!("duplicate index"),
-				));
+	match insert_entry(db, entry).await {
+		Ok(_) => (),
+		Err(e) => match e {
+			InsertEntryError::Duplicate => {
+				return Ok(WebResult::Fine(StatusCode::CONFLICT, "duplicate index"));
 			}
-			_ => {
-				return Err(e)?;
+			InsertEntryError::Other(e) => {
+				Err(e)?;
 			}
 		}
 	};
@@ -190,17 +139,7 @@ pub async fn next(
 	db: Database,
 	q: TimeSlotQuery,
 ) -> anyhow::Result<WebResult<(u32, String), &'static str>> {
-	let timeslots = collection_timeslots(&db).await;
-
-	let ts = match timeslots
-		.find_one(
-			bson::doc! {
-				"user_id": &u.0,
-				"id": q.id,
-			},
-			None,
-		)
-		.await?
+	let ts = match get_timeslot_by_id(db, u, q.id).await?
 	{
 		Some(d) => d.into(),
 		None => {

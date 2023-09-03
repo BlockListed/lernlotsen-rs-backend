@@ -1,0 +1,97 @@
+use bson::doc;
+use futures_util::StreamExt;
+use mongodb::Database;
+use tokio::spawn;
+use tracing::{error, debug};
+
+use crate::{auth::UserId, db::collection_entries};
+use crate::db::model::{Entry, BsonEntry};
+
+pub async fn get_entries_by_timeslot_id(db: Database, u: UserId, id: uuid::Uuid) -> anyhow::Result<Vec<Entry>> {
+	let query = doc! {
+		"timeslot_id": id,
+		"user_id": u.0,
+	};
+
+	spawn(async move {
+		let entries = collection_entries(&db).await;
+
+		Ok(entries.find(query, None).await?
+			.filter_map(|v| async {
+				match v {
+					Ok(x) => Some(x),
+					Err(e) => {
+						error!(%e, "invalid data in database");
+						None
+					}
+				}
+			})
+			.map(|v| v.into())
+			.collect()
+			.await
+		)
+	}).await.unwrap()
+}
+
+pub async fn get_entries_with_index_in(db: Database, u: UserId, indexes: Vec<u32>) -> anyhow::Result<Vec<Entry>> {
+	let query = doc! {
+		"user_id": u.0,
+		"index": {
+			"$in": indexes,
+		}
+	};
+
+	spawn(async move {
+		let entries = collection_entries(&db).await;
+
+		Ok(
+			entries.find(query, None).await?
+				.filter_map(|v| async {
+					match v {
+						Ok(x) => Some(x),
+						Err(e) => {
+							error!(%e, "invalid data in database");
+							None
+						}
+					} 
+				})
+				.map(|v| v.into())
+				.collect()
+				.await
+		)
+	}).await.unwrap()
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum InsertEntryError {
+	#[error("duplicate index")]
+	Duplicate,
+	#[error("internal server error")]
+	Other(#[from] anyhow::Error),
+}
+
+pub async fn insert_entry(db: Database, entry: BsonEntry) -> Result<(), InsertEntryError> {
+	let res = spawn(async move {
+		let entries = collection_entries(&db).await;
+
+		entries.insert_one(entry, None).await
+	}).await.unwrap();
+
+	if let Err(e) = res {
+		use mongodb::error::{ErrorKind, WriteError, WriteFailure};
+
+		match *e.kind {
+			ErrorKind::Write(WriteFailure::WriteError(WriteError { code: 11000, .. })) => {
+				debug!("Duplicated entry.");
+
+				return Err(InsertEntryError::Duplicate)
+			}
+			_ => {
+				let anyerr: anyhow::Error = e.into();
+				return Err(anyerr)?;
+			}
+		}
+	};
+
+	Ok(())
+}

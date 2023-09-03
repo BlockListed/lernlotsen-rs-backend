@@ -1,12 +1,14 @@
-use crate::db::model::HasUserId;
-
-use super::{auth::UserId, util::prelude::*};
 use axum::http::StatusCode;
 use tracing::error;
 
+use crate::api::util::prelude::*;
+
+use crate::auth::UserId;
+use crate::db::model::HasUserId;
+
 pub mod entries;
 
-pub fn check_object_belong_to_userid<'a, T: HasUserId<'a> + 'a>(
+pub fn check_object_belong_to_userid<'a, T: HasUserId + 'a>(
 	mut entries: impl Iterator<Item = &'a T>,
 	user_id: &UserId,
 ) -> WebResult<(), &'static str> {
