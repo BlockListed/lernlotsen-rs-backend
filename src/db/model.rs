@@ -112,3 +112,9 @@ impl<U: Display> HasUserId for BaseEntry<U> {
 		format!("entry: {}-{}", self.timeslot_id, self.index)
 	}
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct ConfigurationEntry {
+	pub key: String,
+	pub value: String,
+}

@@ -11,6 +11,8 @@ mod migrate;
 
 use model::{BsonEntry, BsonTimeSlot};
 
+use self::model::ConfigurationEntry;
+
 pub async fn get_db(cfg: &Config) -> Database {
 	let mut opts = ClientOptions::parse(&cfg.database.uri).await.unwrap();
 
@@ -35,4 +37,8 @@ pub async fn collection_timeslots(db: &Database) -> Collection<BsonTimeSlot> {
 
 pub async fn collection_entries(db: &Database) -> Collection<BsonEntry> {
 	db.collection("entries")
+}
+
+pub async fn collection_config(db: &Database) -> Collection<ConfigurationEntry> {
+	db.collection("config")
 }
