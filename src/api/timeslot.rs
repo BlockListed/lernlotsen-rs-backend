@@ -22,9 +22,7 @@ pub async fn query(
 	Extension(u): Extension<UserId>,
 	Query(q): Query<TimeSlotQuery>,
 ) -> WebResult<Vec<TimeSlot>, &'static str> {
-	let data = match spawn_in_current_span(timeslot::query(u.clone(), db, q))
-		.await
-		.unwrap()
+	let data = match timeslot::query(u.clone(), db, q).await
 	{
 		Ok(d) => d,
 		Err(e) => {
@@ -48,9 +46,7 @@ pub async fn create(
 	Extension(u): Extension<UserId>,
 	Json(r): Json<TimeslotCreate>,
 ) -> WebResult<TimeslotCreateReturn, &'static str> {
-	let data = match spawn_in_current_span(timeslot::create(u, db, r))
-		.await
-		.unwrap()
+	let data = match timeslot::create(u, db, r).await
 	{
 		Ok(d) => d,
 		Err(e) => {

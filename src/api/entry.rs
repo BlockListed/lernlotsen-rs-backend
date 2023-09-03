@@ -21,9 +21,7 @@ pub async fn create(
 	Extension(u): Extension<UserId>,
 	Json(r): Json<entry::CreateEntry>,
 ) -> WebResult<&'static str, Value> {
-	match spawn_in_current_span(entry::create(u, db, r, q))
-		.await
-		.unwrap()
+	match entry::create(u, db, r, q).await
 	{
 		Ok(d) => d,
 		Err(e) => {
@@ -41,9 +39,7 @@ pub async fn query(
 	Path(q): Path<entry::TimeSlotQuery>,
 	Extension(u): Extension<UserId>,
 ) -> WebResult<Vec<(Entry, String)>, &'static str> {
-	let data = match spawn_in_current_span(entry::query(u.clone(), db, q))
-		.await
-		.unwrap()
+	let data = match entry::query(u.clone(), db, q).await
 	{
 		Ok(d) => d,
 		Err(e) => {
@@ -67,9 +63,7 @@ pub async fn missing(
 	Path(q): Path<entry::TimeSlotQuery>,
 	Extension(u): Extension<UserId>,
 ) -> WebResult<Vec<(u32, String)>, &'static str> {
-	match spawn_in_current_span(entry::missing(u, db, q))
-		.await
-		.unwrap()
+	match entry::missing(u, db, q).await
 	{
 		Ok(d) => d,
 		Err(e) => {
@@ -84,7 +78,7 @@ pub async fn next(
 	Path(q): Path<entry::TimeSlotQuery>,
 	Extension(u): Extension<UserId>,
 ) -> WebResult<(u32, String), &'static str> {
-	match spawn_in_current_span(entry::next(u, db, q)).await.unwrap() {
+	match entry::next(u, db, q).await {
 		Ok(d) => d,
 		Err(e) => {
 			error!(%e, "error while handling request");

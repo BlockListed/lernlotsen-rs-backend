@@ -1,14 +1,8 @@
-use std::future::Future;
-
 use axum::extract::Json;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 
 use serde::Serialize;
-
-use tokio::task::JoinHandle;
-
-use tracing::{Instrument, Span};
 
 #[must_use]
 pub enum WebResult<M: Serialize, E: Serialize> {
@@ -65,15 +59,7 @@ macro_rules! try_web {
 	};
 }
 
-pub fn spawn_in_current_span<T: Send + 'static>(
-	f: impl Future<Output = T> + Send + 'static,
-) -> JoinHandle<T> {
-	tokio::spawn(f.instrument(Span::current()))
-}
-
 pub mod prelude {
 	pub use super::WebResult;
 	pub use super::WebResult::*;
-
-	pub use super::spawn_in_current_span;
 }
