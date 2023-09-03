@@ -111,7 +111,7 @@ pub async fn missing_entries(
 	u: UserId,
 	timeslot: TimeSlot,
 ) -> anyhow::Result<Vec<(u32, String)>> {
-	let mut required_entries = get_entries(&timeslot.into())
+	let mut required_entries = get_entries(&timeslot)
 		.enumerate()
 		.collect::<HashMap<_, _>>();
 

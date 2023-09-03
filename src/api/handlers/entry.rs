@@ -28,7 +28,7 @@ pub async fn query(
 	q: TimeSlotQuery,
 ) -> anyhow::Result<WebResult<Vec<(Entry, String)>, &'static str>> {
 	let timeslot: TimeSlot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await? {
-		Some(x) => x.into(),
+		Some(x) => x,
 		None => {
 			return Ok(WebResult::NotFine(
 				StatusCode::NOT_FOUND,
@@ -40,7 +40,7 @@ pub async fn query(
 	let res: Vec<_> = get_entries_by_timeslot_id(db, u, timeslot.id).await?
 		.drain(..)
 		.filter_map(|v| {
-			let entry: Entry = v.into();
+			let entry: Entry = v;
 			let Some(time) = get_time_from_index_and_timeslot(&timeslot, entry.index) else {
 				error!(timeslot=%entry.timeslot_id, index=%entry.index, "date of entry in database overflows the chrono limits");
 				return None;
@@ -70,7 +70,7 @@ pub async fn missing(
 
 	Ok(WebResult::Fine(
 		StatusCode::OK,
-		missing_entries(db, u, timeslot.into()).await?,
+		missing_entries(db, u, timeslot).await?,
 	))
 }
 
@@ -140,7 +140,7 @@ pub async fn next(
 	q: TimeSlotQuery,
 ) -> anyhow::Result<WebResult<(u32, String), &'static str>> {
 	let ts = match get_timeslot_by_id(db, u, q.id).await? {
-		Some(d) => d.into(),
+		Some(d) => d,
 		None => {
 			return Ok(WebResult::NotFine(
 				StatusCode::NOT_FOUND,
