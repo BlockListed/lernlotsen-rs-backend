@@ -39,31 +39,18 @@ where
 	}
 }
 
-impl<O, Er, M: Serialize, E: Serialize> From<Result<O, Er>> for WebResult<M, E>
+impl<O, DontCare, M: Serialize> From<Result<O, DontCare>> for WebResult<M, &'static str>
 where
 	O: Into<M>,
-	Er: Into<E>,
 {
-	fn from(value: Result<O, Er>) -> Self {
+	fn from(value: Result<O, DontCare>) -> Self {
 		match value {
 			Ok(m) => WebResult::Fine(StatusCode::OK, m.into()),
-			Err(e) => WebResult::NotFine(StatusCode::INTERNAL_SERVER_ERROR, e.into()),
+			Err(_) => WebResult::NotFine(StatusCode::INTERNAL_SERVER_ERROR, "internal server error"),
 		}
 	}
 }
 
-pub fn cvt_res<O, Er, M: Serialize, E: Serialize>(
-	value: Result<(StatusCode, O), (StatusCode, Er)>,
-) -> WebResult<M, E>
-where
-	O: Into<M>,
-	Er: Into<E>,
-{
-	match value {
-		Ok((c, m)) => WebResult::Fine(c, m.into()),
-		Err((c, e)) => WebResult::NotFine(c, e.into()),
-	}
-}
 
 pub fn spawn_in_current_span<T: Send + 'static>(
 	f: impl Future<Output = T> + Send + 'static,
@@ -76,17 +63,4 @@ pub mod prelude {
 	pub use super::WebResult::*;
 
 	pub use super::spawn_in_current_span;
-}
-
-#[macro_export]
-macro_rules! handle_db {
-	($e:expr, $err:expr) => {
-		match $e {
-			Ok(x) => x,
-			Err(e) => {
-				::tracing::error!(%e, "encountered database error");
-				return $crate::api::util::WebResult::NotFine(::axum::http::StatusCode::INTERNAL_SERVER_ERROR, $err);
-			}
-		}
-	};
 }

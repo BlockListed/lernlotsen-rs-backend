@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use axum::http::StatusCode;
 use chrono::{DateTime, TimeZone, Utc};
 use chrono::{Duration, NaiveDate};
 use chrono_tz::Tz;
@@ -9,7 +8,6 @@ use mongodb::Database;
 
 use tracing::{debug, error, trace, warn};
 
-use crate::api::util::prelude::*;
 use crate::db::collection_entries;
 use crate::db::model::{BsonTimeSlot, EntryState, Student, TimeSlot};
 
@@ -111,7 +109,7 @@ pub fn get_time_from_index_and_timeslot(
 pub async fn missing_entries(
 	timeslot: BsonTimeSlot,
 	db: &Database,
-) -> WebResult<Vec<(usize, String)>, &'static str> {
+) -> anyhow::Result<Vec<(usize, String)>> {
 	let entries = collection_entries(db).await;
 
 	let timeslot_id = timeslot.id;
@@ -130,7 +128,7 @@ pub async fn missing_entries(
 		.map(|x| *x as i32)
 		.collect::<Vec<_>>();
 
-	let found_indexes = crate::handle_db!(
+	let found_indexes =
 		entries
 			.find(
 				bson::doc! {
@@ -141,9 +139,7 @@ pub async fn missing_entries(
 				},
 				None
 			)
-			.await,
-		"database error"
-	)
+			.await?
 	.filter_map(|v| async {
 		match v {
 			Ok(x) => Some(x.index),
@@ -168,7 +164,7 @@ pub async fn missing_entries(
 
 	missing_entries.sort_unstable_by_key(|x| x.0);
 
-	Fine(StatusCode::OK, missing_entries)
+	Ok(missing_entries)
 }
 
 pub fn next_entry_date_timeslot(ts: &TimeSlot) -> Option<(u32, DateTime<chrono_tz::Tz>)> {

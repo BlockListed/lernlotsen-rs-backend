@@ -103,7 +103,7 @@ pub async fn missing(
 		}
 	};
 
-	Ok(missing_entries(timeslot, &db).await)
+	Ok(WebResult::Fine(StatusCode::OK, missing_entries(timeslot, &db).await?))
 }
 
 #[derive(Deserialize, Debug)]
