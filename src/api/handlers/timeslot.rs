@@ -11,6 +11,7 @@ use crate::api::util::prelude::*;
 use crate::auth::UserId;
 use crate::db::model::{BsonTimeSlot, Student, TimeSlot};
 use crate::db::queries::timeslot::{get_timeslot_by_id, get_timeslots, insert_timeslot};
+use crate::util::create_isoweek;
 
 #[derive(Deserialize, Debug)]
 pub struct TimeSlotQuery {
@@ -71,4 +72,35 @@ pub async fn create(
 	insert_timeslot(db, ts).await?;
 
 	Ok(Fine(StatusCode::CREATED, id))
+}
+
+#[derive(Deserialize)]
+struct IsoWeekYear {
+	year: i32,
+	week: u32,
+}
+
+#[derive(Deserialize)]
+pub struct ExportRequest {
+	range: Range<IsoWeekYear>,
+	#[serde(default)]
+	allow_incomplete_week: bool,
+}
+
+pub async fn export(
+	u: UserId,
+	db: Database,
+	r: ExportRequest,
+) -> anyhow::Result<WebResult<String, &'static str>> {
+	let Some(start) = create_isoweek(r.range.start.year, r.range.start.week) else {
+		return Ok(WebResult::NotFine(StatusCode::UNPROCESSABLE_ENTITY, "invalid week/year"));
+	};
+
+	let Some(end) = create_isoweek(r.range.end.year, r.range.end.week) else {
+		return Ok(WebResult::NotFine(StatusCode::UNPROCESSABLE_ENTITY, "invalid week/year"));
+	};
+
+	let ts = get_timeslots(db.clone(), u.clone()).await?;
+
+	todo!()
 }

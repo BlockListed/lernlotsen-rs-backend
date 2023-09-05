@@ -1,3 +1,5 @@
+#![deny(clippy::todo)]
+
 use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter};
 

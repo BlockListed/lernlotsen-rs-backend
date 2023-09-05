@@ -50,6 +50,7 @@ pub async fn run(db: Database, cfg: Config) {
 
 	let app = Router::new()
 		.route("/timeslots", get(timeslot::query).post(timeslot::create))
+		.route("/timeslots/export", get(timeslot::export))
 		.route(
 			"/timeslots/:id/entries",
 			get(entry::query).post(entry::create),

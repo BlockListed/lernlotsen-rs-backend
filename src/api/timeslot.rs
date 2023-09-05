@@ -15,15 +15,14 @@ use crate::try_web;
 use super::logic::check_object_belong_to_userid;
 use super::AppState;
 
-use super::handlers::timeslot::{self, TimeSlotQuery, TimeslotCreate};
+use super::handlers::timeslot::{self, ExportRequest, TimeSlotQuery, TimeslotCreate};
 
 pub async fn query(
 	State(AppState { db, .. }): State<AppState>,
 	Extension(u): Extension<UserId>,
 	Query(q): Query<TimeSlotQuery>,
 ) -> WebResult<Vec<TimeSlot>, &'static str> {
-	let data = match timeslot::query(u.clone(), db, q).await
-	{
+	let data = match timeslot::query(u.clone(), db, q).await {
 		Ok(d) => d,
 		Err(e) => {
 			error!(%e, "error while handling request");
@@ -46,8 +45,7 @@ pub async fn create(
 	Extension(u): Extension<UserId>,
 	Json(r): Json<TimeslotCreate>,
 ) -> WebResult<TimeslotCreateReturn, &'static str> {
-	let data = match timeslot::create(u, db, r).await
-	{
+	let data = match timeslot::create(u, db, r).await {
 		Ok(d) => d,
 		Err(e) => {
 			error!(%e, "error while handling request");
@@ -59,4 +57,12 @@ pub async fn create(
 		Fine(c, id) => Fine(c, TimeslotCreateReturn { id }),
 		NotFine(c, e) => NotFine(c, e),
 	}
+}
+
+pub async fn export(
+	State(AppState { db, .. }): State<AppState>,
+	Extension(u): Extension<UserId>,
+	Json(r): Json<ExportRequest>,
+) -> WebResult<String, &'static str> {
+	todo!()
 }

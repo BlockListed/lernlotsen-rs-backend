@@ -7,7 +7,7 @@ use uuid::Uuid;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::api::logic::entries::{
+use crate::api::logic::entry::{
 	get_time_from_index_and_timeslot, missing_entries, next_entry_date_timeslot, verify_state,
 };
 use crate::api::util::WebResult;

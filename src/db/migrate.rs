@@ -10,9 +10,7 @@ use mongodb::{
 
 use tracing::info;
 
-use super::{
-	collection_config, collection_entries, collection_timeslots,
-};
+use super::{collection_config, collection_entries, collection_timeslots};
 
 async fn get_generation(db: &Database) -> u32 {
 	let config = collection_config(db).await;
@@ -66,7 +64,7 @@ pub async fn migrate(db: &Database) {
 			4 => up_entries_userid_index_2023_09_03_07_19_54_00_00(db).await,
 			_ => unreachable!(),
 		};
-		
+
 		let generation_changed = generation != get_generation(db).await;
 
 		if generation_changed {
@@ -77,7 +75,7 @@ pub async fn migrate(db: &Database) {
 
 		set_generation(db, generation).await;
 	}
-	
+
 	info!(generation, "completed migrations");
 }
 

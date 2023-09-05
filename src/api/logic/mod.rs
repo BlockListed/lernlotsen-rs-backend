@@ -6,7 +6,8 @@ use crate::api::util::prelude::*;
 use crate::auth::UserId;
 use crate::db::model::HasUserId;
 
-pub mod entries;
+pub mod entry;
+pub mod timeslot;
 
 pub fn check_object_belong_to_userid<'a, T: HasUserId + 'a>(
 	mut entries: impl Iterator<Item = &'a T>,

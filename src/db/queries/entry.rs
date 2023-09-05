@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use bson::doc;
 use futures_util::StreamExt;
 use mongodb::Database;
@@ -109,4 +111,39 @@ pub async fn insert_entry(db: Database, entry: BsonEntry) -> Result<(), InsertEn
 	};
 
 	Ok(())
+}
+
+pub async fn get_entry_by_index_range(
+	db: Database,
+	u: UserId,
+	id: uuid::Uuid,
+	index_range: Range<u32>,
+) -> anyhow::Result<Vec<Entry>> {
+	let query = doc! {
+		"user_id": u.0,
+		"timeslot_id": id,
+		"index": {
+			"$range": [index_range.start, index_range.end+1]
+		}
+	};
+
+	Ok(spawn(async move {
+		let entries = collection_entries(&db).await;
+
+		entries
+			.find(query, None)
+			.await
+			.unwrap()
+			.filter_map(|v| async {
+				if let Ok(entry) = v {
+					Some(entry.into())
+				} else {
+					None
+				}
+			})
+			.collect()
+			.await
+	})
+	.await
+	.unwrap())
 }

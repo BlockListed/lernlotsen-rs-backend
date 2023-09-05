@@ -21,8 +21,7 @@ pub async fn create(
 	Extension(u): Extension<UserId>,
 	Json(r): Json<entry::CreateEntry>,
 ) -> WebResult<&'static str, Value> {
-	match entry::create(u, db, r, q).await
-	{
+	match entry::create(u, db, r, q).await {
 		Ok(d) => d,
 		Err(e) => {
 			error!(%e, "error while handling request");
@@ -39,8 +38,7 @@ pub async fn query(
 	Path(q): Path<entry::TimeSlotQuery>,
 	Extension(u): Extension<UserId>,
 ) -> WebResult<Vec<(Entry, String)>, &'static str> {
-	let data = match entry::query(u.clone(), db, q).await
-	{
+	let data = match entry::query(u.clone(), db, q).await {
 		Ok(d) => d,
 		Err(e) => {
 			error!(%e, "error while handling request");
@@ -63,8 +61,7 @@ pub async fn missing(
 	Path(q): Path<entry::TimeSlotQuery>,
 	Extension(u): Extension<UserId>,
 ) -> WebResult<Vec<(u32, String)>, &'static str> {
-	match entry::missing(u, db, q).await
-	{
+	match entry::missing(u, db, q).await {
 		Ok(d) => d,
 		Err(e) => {
 			error!(%e, "error while handling request");

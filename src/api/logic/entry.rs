@@ -164,7 +164,7 @@ pub fn next_entry_date_timeslot(ts: &TimeSlot) -> Option<(u32, DateTime<chrono_t
 	let seconds = since.num_seconds();
 	assert!(seconds >= 0);
 
-	// Number of days from `start` until the next (from now) event
+	// Number of seconds from `start` until the next (from now) event
 	let next_seconds = crate::util::round_up_to_multiple(seconds, Duration::weeks(1).num_seconds());
 
 	let next_date = start + Duration::seconds(next_seconds);
