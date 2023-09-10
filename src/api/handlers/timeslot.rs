@@ -6,7 +6,7 @@ use anyhow::Context;
 use axum::http::StatusCode;
 use chrono::{Datelike, IsoWeek, NaiveDate, NaiveTime, Weekday};
 use chrono_tz::Tz;
-use futures_util::stream::FuturesUnordered;
+use futures_util::stream::{FuturesUnordered, FuturesOrdered};
 use futures_util::{FutureExt, StreamExt};
 use mongodb::Database;
 use serde::Deserialize;
@@ -122,7 +122,12 @@ pub async fn export(
 		return Ok(WebResult::NotFine(StatusCode::UNPROCESSABLE_ENTITY, "invalid week/year"));
 	};
 
-	let user_timeslots = get_timeslots(db.clone(), u.clone()).await?;
+	let mut user_timeslots = get_timeslots(db.clone(), u.clone()).await?;
+
+	user_timeslots.sort_by(|a, b| {
+		a.timerange.start.weekday().num_days_from_monday().cmp(&b.timerange.start.weekday().num_days_from_monday())
+			.then(a.time.start.cmp(&b.time.start))
+	});
 
 	if let WebResult::NotFine(c, e) = check_object_belong_to_userid(user_timeslots.iter(), &u) {
 		return Ok(WebResult::NotFine(c, e));
@@ -154,7 +159,7 @@ pub async fn export(
 		}
 	}
 
-	let entry_results = FuturesUnordered::from_iter(timeslot_handles.into_iter())
+	let entry_results = FuturesOrdered::from_iter(timeslot_handles.into_iter())
 		.collect::<Vec<_>>()
 		.await;
 
