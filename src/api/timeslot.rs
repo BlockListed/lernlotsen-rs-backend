@@ -62,13 +62,13 @@ pub async fn create(
 pub async fn export(
 	State(AppState { db, .. }): State<AppState>,
 	Extension(u): Extension<UserId>,
-	Query(q): Query<ExportRequest>
+	Query(q): Query<ExportRequest>,
 ) -> WebResult<String, &'static str> {
 	match timeslot::export(u, db, q).await {
 		Ok(v) => v,
 		Err(e) => {
 			error!(%e, "error while handling request");
-			return NotFine(StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
+			NotFine(StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
 		}
 	}
 }

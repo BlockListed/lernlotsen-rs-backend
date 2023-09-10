@@ -136,8 +136,7 @@ pub async fn get_entry_by_index_range(
 
 		Ok(entries
 			.find(query, None)
-			.await
-			?
+			.await?
 			.filter_map(|v| async {
 				if let Ok(entry) = v {
 					Some(entry.into())
@@ -146,8 +145,7 @@ pub async fn get_entry_by_index_range(
 				}
 			})
 			.collect()
-			.await
-		)
+			.await)
 	})
 	.await
 	.unwrap()
