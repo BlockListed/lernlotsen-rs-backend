@@ -138,9 +138,10 @@ pub async fn export(
 			Some(r) => {
 				let db_task = db.clone();
 				let u_task = u.clone();
+				let expected_entry_count = r.0.end - r.0.start + 1;
 				timeslot_handles.push(tokio::spawn(
 					get_entry_by_index_range(db_task, u_task, r.1.id, r.0)
-						.map(|res| res.map(|e| (e, r.1))),
+						.map(move |res| res.map(|e| (e, r.1, expected_entry_count))),
 				));
 			}
 			None => {
@@ -160,7 +161,11 @@ pub async fn export(
 	let mut week_map: BTreeMap<IsoWeek, Vec<Entry>> = BTreeMap::new();
 
 	for res in entry_results {
-		let (entries, ts) = res.unwrap()?;
+		let (entries, ts, expected_count) = res.unwrap()?;
+
+		if (entries.len() as u32) < expected_count {
+			return Ok(NotFine(StatusCode::PRECONDITION_REQUIRED, "no entries in range can be missing"))
+		}
 
 		for e in entries {
 			let iso_week = get_time_from_index_and_timeslot(&ts, e.index)
