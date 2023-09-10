@@ -15,7 +15,7 @@ pub struct Student {
 	pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum StudentStatus {
 	Present,
 	Pardoned,
@@ -35,7 +35,7 @@ pub struct BaseTimeSlot<UUID, Date> {
 	pub timezone: Tz,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "status")]
 pub enum EntryState {
 	Success {

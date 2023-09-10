@@ -8,6 +8,7 @@ use crate::db::model::HasUserId;
 
 pub mod entry;
 pub mod timeslot;
+pub mod export;
 
 pub fn check_object_belong_to_userid<'a, T: HasUserId + 'a>(
 	mut entries: impl Iterator<Item = &'a T>,

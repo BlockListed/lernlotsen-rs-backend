@@ -14,6 +14,7 @@ use uuid::Uuid;
 
 use crate::api::logic::check_object_belong_to_userid;
 use crate::api::logic::entry::get_time_from_index_and_timeslot;
+use crate::api::logic::export::format_entry;
 use crate::api::logic::timeslot::get_index_range_timeslot;
 use crate::api::util::prelude::*;
 use crate::auth::UserId;
@@ -158,7 +159,8 @@ pub async fn export(
 		.await;
 
 	// BtreeMap, because we need ordering
-	let mut week_map: BTreeMap<IsoWeek, Vec<Entry>> = BTreeMap::new();
+	// TODO: Vec<Student> should probably be Arc<[Student]> to save allocations.
+	let mut week_map: BTreeMap<IsoWeek, Vec<(Entry, Vec<Student>)>> = BTreeMap::new();
 
 	for res in entry_results {
 		let (entries, ts, expected_count) = res.unwrap()?;
@@ -176,9 +178,9 @@ pub async fn export(
 				.iso_week();
 
 			if let Some(week_entries) = week_map.get_mut(&iso_week) {
-				week_entries.push(e);
+				week_entries.push((e, ts.students.clone()));
 			} else {
-				week_map.insert(iso_week, [e].into());
+				week_map.insert(iso_week, [(e, ts.students.clone())].into());
 			}
 		}
 	}
@@ -187,8 +189,8 @@ pub async fn export(
 
 	for (w, entries) in week_map.iter() {
 		writeln!(output, "KW{}", w.week())?;
-		for e in entries {
-			writeln!(output, "Unterricht ist super gelaufen mit {:?}", e.state)?;
+		for (e, students) in entries {
+			writeln!(output, "{}", format_entry(&e.state, students))?;
 		}
 	}
 
