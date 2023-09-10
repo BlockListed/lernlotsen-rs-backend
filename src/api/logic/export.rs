@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use itertools::Itertools;
 
-use crate::db::model::{EntryState, StudentStatus, Student};
+use crate::db::model::{EntryState, Student, StudentStatus};
 
 // TODO optimise this by writing to a single string instead of allocation like 9 bagillion strings
 pub fn format_entry(entry: &EntryState, students: &[Student]) -> String {
@@ -15,21 +15,24 @@ pub fn format_entry(entry: &EntryState, students: &[Student]) -> String {
 					Some(s) => s.push(student),
 					None => {
 						status_map.insert(status, [student].into());
-					},
+					}
 				};
 			}
 
-			let present_students = status_map.get(&StudentStatus::Present).map(|s| {
-				format_students(s)
-			}).unwrap_or_else(|| "niemand".to_string());
-			let pardoned_students = status_map.get(&StudentStatus::Pardoned).map(|s| {
-				format_students(s)
-			});
-			let missing_students = status_map.get(&StudentStatus::Missing).map(|s| {
-				format_students(s)
-			});
+			let present_students = status_map
+				.get(&StudentStatus::Present)
+				.map(|s| format_students(s))
+				.unwrap_or_else(|| "niemand".to_string());
+			let pardoned_students = status_map
+				.get(&StudentStatus::Pardoned)
+				.map(|s| format_students(s));
+			let missing_students = status_map
+				.get(&StudentStatus::Missing)
+				.map(|s| format_students(s));
 
-			let base = format!("Unterricht mit {present_students} hat planmäßig und erfolgreich stattgefunden.");
+			let base = format!(
+				"Unterricht mit {present_students} hat planmäßig und erfolgreich stattgefunden."
+			);
 
 			let pardoned = if let Some(students) = pardoned_students {
 				format!(" ({students} entschuldigt)")
@@ -53,9 +56,7 @@ pub fn format_entry(entry: &EntryState, students: &[Student]) -> String {
 			let students = format_students(students);
 			format!("Unterricht mit {students} wurde von mir abgesagt und nicht nachgeholt.")
 		}
-		EntryState::Holidays => {
-			"Ferien".to_string()
-		}
+		EntryState::Holidays => "Ferien".to_string(),
 		EntryState::StudentsMissing => {
 			let students = format_students(students);
 			format!("Unterricht mit {students} konnte nicht stattfinden. Matrose(n) fehlte(n) unentschuldigt!")

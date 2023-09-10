@@ -6,7 +6,7 @@ use anyhow::Context;
 use axum::http::StatusCode;
 use chrono::{Datelike, IsoWeek, NaiveDate, NaiveTime, Weekday};
 use chrono_tz::Tz;
-use futures_util::stream::{FuturesUnordered, FuturesOrdered};
+use futures_util::stream::{FuturesOrdered, FuturesUnordered};
 use futures_util::{FutureExt, StreamExt};
 use mongodb::Database;
 use serde::Deserialize;
@@ -125,7 +125,11 @@ pub async fn export(
 	let mut user_timeslots = get_timeslots(db.clone(), u.clone()).await?;
 
 	user_timeslots.sort_by(|a, b| {
-		a.timerange.start.weekday().num_days_from_monday().cmp(&b.timerange.start.weekday().num_days_from_monday())
+		a.timerange
+			.start
+			.weekday()
+			.num_days_from_monday()
+			.cmp(&b.timerange.start.weekday().num_days_from_monday())
 			.then(a.time.start.cmp(&b.time.start))
 	});
 
@@ -171,7 +175,10 @@ pub async fn export(
 		let (entries, ts, expected_count) = res.unwrap()?;
 
 		if (entries.len() as u32) < expected_count {
-			return Ok(NotFine(StatusCode::PRECONDITION_REQUIRED, "no entries in range can be missing"))
+			return Ok(NotFine(
+				StatusCode::PRECONDITION_REQUIRED,
+				"no entries in range can be missing",
+			));
 		}
 
 		for e in entries {
