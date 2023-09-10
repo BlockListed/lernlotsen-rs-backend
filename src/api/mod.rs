@@ -42,10 +42,12 @@ pub async fn run(db: Database, cfg: Config) {
 		.await,
 	);
 
+	let cfg = Arc::new(cfg);
+
 	let state = AppState {
 		db,
 		auth: auth.clone(),
-		cfg: cfg.into(),
+		cfg: cfg.clone(),
 	};
 
 	let app = Router::new()
@@ -78,8 +80,23 @@ pub async fn run(db: Database, cfg: Config) {
 
 	info!(uri=%hosturl, "Starting server");
 
-	Server::bind(&hosturl)
-		.serve(app.into_make_service())
-		.await
-		.unwrap();
+	match &cfg.tls {
+		Some(tls) => {
+			let tls_config =
+				axum_server::tls_rustls::RustlsConfig::from_pem_file(&tls.certpath, &tls.keypath)
+					.await
+					.expect("Couldn't read tls cert/key");
+
+			axum_server::bind_rustls(hosturl, tls_config)
+				.serve(app.into_make_service())
+				.await
+				.unwrap();
+		}
+		None => {
+			axum_server::bind(hosturl)
+				.serve(app.into_make_service())
+				.await
+				.unwrap();
+		}
+	}
 }
