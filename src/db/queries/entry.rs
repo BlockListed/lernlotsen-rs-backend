@@ -5,6 +5,7 @@ use futures_util::StreamExt;
 use mongodb::Database;
 use tokio::spawn;
 use tracing::{debug, error};
+use uuid::Uuid;
 
 use crate::db::model::{BsonEntry, Entry};
 use crate::{auth::UserId, db::collection_entries};
@@ -45,9 +46,11 @@ pub async fn get_entries_by_timeslot_id(
 pub async fn get_entries_with_index_in(
 	db: Database,
 	u: UserId,
+	timeslot_id: Uuid,
 	indexes: Vec<u32>,
 ) -> anyhow::Result<Vec<Entry>> {
 	let query = doc! {
+		"timeslot_id": timeslot_id,
 		"user_id": u.0,
 		"index": {
 			"$in": indexes,
@@ -123,17 +126,18 @@ pub async fn get_entry_by_index_range(
 		"user_id": u.0,
 		"timeslot_id": id,
 		"index": {
-			"$range": [index_range.start, index_range.end+1]
+			"$gte": index_range.start,
+			"$lte": index_range.end,
 		}
 	};
 
-	Ok(spawn(async move {
+	spawn(async move {
 		let entries = collection_entries(&db).await;
 
-		entries
+		Ok(entries
 			.find(query, None)
 			.await
-			.unwrap()
+			?
 			.filter_map(|v| async {
 				if let Ok(entry) = v {
 					Some(entry.into())
@@ -143,7 +147,8 @@ pub async fn get_entry_by_index_range(
 			})
 			.collect()
 			.await
+		)
 	})
 	.await
-	.unwrap())
+	.unwrap()
 }
