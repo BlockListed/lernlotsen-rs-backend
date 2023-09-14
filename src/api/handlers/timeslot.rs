@@ -10,6 +10,7 @@ use futures_util::stream::{FuturesOrdered, FuturesUnordered};
 use futures_util::{FutureExt, StreamExt};
 use mongodb::Database;
 use serde::Deserialize;
+use tracing::{debug, warn};
 use uuid::Uuid;
 
 use crate::api::logic::check_object_belong_to_userid;
@@ -124,6 +125,7 @@ pub async fn export(
 
 	let mut user_timeslots = get_timeslots(db.clone(), u.clone()).await?;
 
+	// Make sure we list timeslots in order in export
 	user_timeslots.sort_by(|a, b| {
 		a.timerange
 			.start
@@ -139,27 +141,25 @@ pub async fn export(
 
 	let index_ranges = user_timeslots
 		.into_iter()
-		.map(|ts| get_index_range_timeslot(&ts, start..end).map(|r| (r, ts)));
+		.map(|ts| (get_index_range_timeslot(&ts, start..end), ts));
 
 	let mut timeslot_handles = Vec::new();
 
 	for i in index_ranges {
-		match i {
+		match i.0 {
 			Some(r) => {
 				let db_task = db.clone();
 				let u_task = u.clone();
-				let expected_entry_count = r.0.end - r.0.start + 1;
+				let expected_entry_count = r.end - r.start + 1;
 				timeslot_handles.push(tokio::spawn(
-					get_entry_by_index_range(db_task, u_task, r.1.id, r.0)
-						.map(move |res| res.map(|e| (e, r.1, expected_entry_count))),
+					get_entry_by_index_range(db_task, u_task, i.1.id, r)
+						.map(move |res| res.map(|e| (e, i.1, expected_entry_count))),
 				));
 			}
 			None => {
-				return Ok(WebResult::NotFine(
-					StatusCode::UNPROCESSABLE_ENTITY,
-					"invalid timerange",
-				))
-			}
+				let id = i.1.id;
+				debug!(ts=%id, ?start, ?end, "timerange invalid for timeslot");
+			},
 		}
 	}
 
