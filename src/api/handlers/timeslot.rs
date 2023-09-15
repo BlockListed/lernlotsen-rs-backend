@@ -124,13 +124,6 @@ pub async fn export(
 		return Ok(WebResult::NotFine(StatusCode::UNPROCESSABLE_ENTITY, "invalid week/year".into()));
 	};
 
-	let end_date = NaiveDate::from_isoywd_opt(end.year(), end.week(), Weekday::Sun).context("invalid end date")?;
-
-	// If end date is in the past.
-	if Utc::now().date_naive().signed_duration_since(end_date) < Duration::zero() {
-		return Ok(WebResult::NotFine(StatusCode::PRECONDITION_FAILED, "end date is in the future!".into()));
-	}
-
 	let mut user_timeslots = get_timeslots(db.clone(), u.clone()).await?;
 
 	// Make sure we list timeslots in order in export
