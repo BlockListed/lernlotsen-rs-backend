@@ -4,7 +4,7 @@ use std::time::Duration;
 use axum::body::Body;
 use axum::http::Request;
 use axum::routing::get;
-use axum::{Router, Server};
+use axum::Router;
 
 use mongodb::Database;
 
