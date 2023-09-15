@@ -3,6 +3,7 @@ use axum::http::StatusCode;
 use axum::Extension;
 
 use serde::Serialize;
+use serde_json::Value;
 use tracing::error;
 use uuid::Uuid;
 
@@ -63,12 +64,12 @@ pub async fn export(
 	State(AppState { db, .. }): State<AppState>,
 	Extension(u): Extension<UserId>,
 	Query(q): Query<ExportRequest>,
-) -> WebResult<String, &'static str> {
+) -> WebResult<String, Value> {
 	match timeslot::export(u, db, q).await {
 		Ok(v) => v,
 		Err(e) => {
 			error!(%e, "error while handling request");
-			NotFine(StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
+			NotFine(StatusCode::INTERNAL_SERVER_ERROR, "internal server error".into())
 		}
 	}
 }

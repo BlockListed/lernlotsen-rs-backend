@@ -4,13 +4,14 @@ use std::ops::Range;
 
 use anyhow::Context;
 use axum::http::StatusCode;
-use chrono::{Datelike, IsoWeek, NaiveDate, NaiveTime, Weekday};
+use chrono::{Datelike, IsoWeek, NaiveDate, NaiveTime, Weekday, Utc, Duration};
 use chrono_tz::Tz;
-use futures_util::stream::{FuturesOrdered, FuturesUnordered};
+use futures_util::stream::FuturesOrdered;
 use futures_util::{FutureExt, StreamExt};
 use mongodb::Database;
 use serde::Deserialize;
-use tracing::{debug, warn};
+use serde_json::{json, Value};
+use tracing::debug;
 use uuid::Uuid;
 
 use crate::api::logic::check_object_belong_to_userid;
@@ -114,14 +115,21 @@ pub async fn export(
 	u: UserId,
 	db: Database,
 	q: ExportRequest,
-) -> anyhow::Result<WebResult<String, &'static str>> {
+) -> anyhow::Result<WebResult<String, Value>> {
 	let Some(start) = create_isoweek(q.start_year, q.start_week) else {
-		return Ok(WebResult::NotFine(StatusCode::UNPROCESSABLE_ENTITY, "invalid week/year"));
+		return Ok(WebResult::NotFine(StatusCode::UNPROCESSABLE_ENTITY, "invalid week/year".into()));
 	};
 
 	let Some(end) = create_isoweek(q.end_year, q.end_week) else {
-		return Ok(WebResult::NotFine(StatusCode::UNPROCESSABLE_ENTITY, "invalid week/year"));
+		return Ok(WebResult::NotFine(StatusCode::UNPROCESSABLE_ENTITY, "invalid week/year".into()));
 	};
+
+	let end_date = NaiveDate::from_isoywd_opt(end.year(), end.week(), Weekday::Sun).context("invalid end date")?;
+
+	// If end date is in the past.
+	if Utc::now().date_naive().signed_duration_since(end_date) < Duration::zero() {
+		return Ok(WebResult::NotFine(StatusCode::PRECONDITION_FAILED, "end date is in the future!".into()));
+	}
 
 	let mut user_timeslots = get_timeslots(db.clone(), u.clone()).await?;
 
@@ -136,7 +144,7 @@ pub async fn export(
 	});
 
 	if let WebResult::NotFine(c, e) = check_object_belong_to_userid(user_timeslots.iter(), &u) {
-		return Ok(WebResult::NotFine(c, e));
+		return Ok(WebResult::NotFine(c, e.into()));
 	}
 
 	let index_ranges = user_timeslots
@@ -171,14 +179,27 @@ pub async fn export(
 	// TODO: Vec<Student> should probably be Arc<[Student]> to save allocations.
 	let mut week_map: BTreeMap<IsoWeek, Vec<(Entry, Vec<Student>)>> = BTreeMap::new();
 
+	let mut missing_entry_errors: Option<Vec<(String, uuid::Uuid)>> = None;
+
 	for res in entry_results {
 		let (entries, ts, expected_count) = res.unwrap()?;
 
 		if (entries.len() as u32) < expected_count {
-			return Ok(NotFine(
-				StatusCode::PRECONDITION_REQUIRED,
-				"no entries in range can be missing",
-			));
+			match missing_entry_errors.as_mut() {
+				Some(v) => {
+					v.push((ts.subject, ts.id))
+				}
+				None => {
+					missing_entry_errors = Some(vec![(ts.subject, ts.id)])
+				}
+			}
+			continue;
+		}
+
+		// We don't want to process anything else if a entry is missing,
+		// but we do still want to check the rest of the entries.
+		if missing_entry_errors.is_some() {
+			continue;
 		}
 
 		for e in entries {
@@ -195,6 +216,12 @@ pub async fn export(
 				week_map.insert(iso_week, [(e, ts.students.clone())].into());
 			}
 		}
+	}
+
+	if let Some(e) = missing_entry_errors {
+		let missing_entries: Vec<_> = e.into_iter().map(|(subj, id)| json!({"subject": subj, "id": id})).collect();
+
+		return Ok(WebResult::NotFine(StatusCode::PRECONDITION_REQUIRED, json!({"missing_entries": missing_entries})))
 	}
 
 	let mut output = String::new();
