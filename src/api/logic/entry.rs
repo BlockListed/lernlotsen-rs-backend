@@ -62,13 +62,11 @@ impl<'a> Iterator for EntriesForTimeslot<'a> {
 			}
 		});
 
-		let date = match date_opt {
-			Some(d) => d,
-			None => {
-				trace!(index = self.index, "missing entry iterator finished");
-				return None;
-			}
-		};
+		let date = match date_opt
+		{ Some(d) => d, None => {
+			trace!(index = self.index, "missing entry iterator finished");
+			return None;
+		}};
 
 		self.index += 1;
 
@@ -80,7 +78,7 @@ pub fn get_time_from_index_and_timeslot(
 	timeslot: &TimeSlot,
 	index: u32,
 ) -> Option<DateTime<chrono_tz::Tz>> {
-	let days_from_start = chrono::Days::new((7 * index) as u64);
+	let days_from_start = chrono::Days::new(u64::from(7 * index));
 
 	let new_date = timeslot.timerange.start.checked_add_days(days_from_start)?;
 
@@ -92,7 +90,11 @@ pub fn get_time_from_index_and_timeslot(
 
 	let local_time = time.and_local_timezone(timeslot.timezone);
 
-	use chrono::LocalResult::*;
+	// This is cleaner.
+	// Also this attribute isn't useless.
+	#[allow(clippy::useless_attribute)]
+	#[allow(clippy::items_after_statements)]
+	use chrono::LocalResult::{Ambiguous, None, Single};
 	match local_time {
 		None => {
 			warn!(%time, "could not convert date to local");
@@ -120,6 +122,8 @@ pub async fn missing_entries(
 		"calculated required entries for timeslot"
 	);
 
+	// Entry indices are always u32 or smaller.
+	#[allow(clippy::cast_possible_truncation)]
 	let required_indexes = required_entries
 		.keys()
 		.map(|x| *x as u32)
@@ -136,6 +140,8 @@ pub async fn missing_entries(
 	}
 
 	// All found entries have already been removed.
+	// Entry indices are always u32 or smaller.
+	#[allow(clippy::cast_possible_truncation)]
 	let mut missing_entries = required_entries
 		.into_iter()
 		.map(|(i, d)| (i as u32, d.to_rfc3339()))
@@ -173,5 +179,8 @@ pub fn next_entry_date_timeslot(ts: &TimeSlot) -> Option<(u32, DateTime<chrono_t
 	let index = next_seconds / Duration::weeks(1).num_seconds();
 	assert!(index >= 0);
 
+	// This is fine, since we check for a negative index.
+	#[allow(clippy::cast_sign_loss)]
+	#[allow(clippy::cast_possible_truncation)]
 	Some((index as u32, next_date))
 }

@@ -1,4 +1,11 @@
 #![deny(clippy::todo)]
+#![forbid(unsafe_code)]
+#![deny(clippy::pedantic)]
+// This lint is stupid
+#![allow(clippy::module_name_repetitions)]
+// I like the match operator
+#![allow(clippy::single_match_else)]
+#![allow(clippy::manual_let_else)]
 
 use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter};

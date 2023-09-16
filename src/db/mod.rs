@@ -31,14 +31,18 @@ pub async fn get_db(cfg: &Config) -> Database {
 	database
 }
 
+// I'm too lazy to change this shit.
+#[allow(clippy::unused_async)]
 pub async fn collection_timeslots(db: &Database) -> Collection<BsonTimeSlot> {
 	db.collection("timeslots")
 }
 
+#[allow(clippy::unused_async)]
 pub async fn collection_entries(db: &Database) -> Collection<BsonEntry> {
 	db.collection("entries")
 }
 
+#[allow(clippy::unused_async)]
 pub async fn collection_config(db: &Database) -> Collection<ConfigurationEntry> {
 	db.collection("config")
 }

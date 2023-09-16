@@ -36,7 +36,7 @@ pub async fn query(u: UserId, db: Database, q: TimeSlotQuery) -> anyhow::Result<
 			let mut output = Vec::new();
 
 			if let Some(ts) = get_timeslot_by_id(db, u, id).await? {
-				output.push(ts)
+				output.push(ts);
 			}
 
 			output
@@ -160,11 +160,11 @@ pub async fn export(
 			None => {
 				let id = i.1.id;
 				debug!(ts=%id, ?start, ?end, "timerange invalid for timeslot");
-			},
+			}
 		}
 	}
 
-	let entry_results = FuturesOrdered::from_iter(timeslot_handles.into_iter())
+	let entry_results = timeslot_handles.into_iter().collect::<FuturesOrdered<_>>()
 		.collect::<Vec<_>>()
 		.await;
 
@@ -177,14 +177,12 @@ pub async fn export(
 	for res in entry_results {
 		let (entries, ts, expected_count) = res.unwrap()?;
 
+		// Entry indices are always equal to or less than to u32.
+		#[allow(clippy::cast_possible_truncation)]
 		if (entries.len() as u32) < expected_count {
 			match missing_entry_errors.as_mut() {
-				Some(v) => {
-					v.push((ts.subject, ts.id))
-				}
-				None => {
-					missing_entry_errors = Some(vec![(ts.subject, ts.id)])
-				}
+				Some(v) => v.push((ts.subject, ts.id)),
+				None => missing_entry_errors = Some(vec![(ts.subject, ts.id)]),
 			}
 			continue;
 		}
@@ -212,14 +210,20 @@ pub async fn export(
 	}
 
 	if let Some(e) = missing_entry_errors {
-		let missing_entries: Vec<_> = e.into_iter().map(|(subj, id)| json!({"subject": subj, "id": id})).collect();
+		let missing_entries: Vec<_> = e
+			.into_iter()
+			.map(|(subj, id)| json!({"subject": subj, "id": id}))
+			.collect();
 
-		return Ok(WebResult::NotFine(StatusCode::PRECONDITION_REQUIRED, json!({"missing_entries": missing_entries})))
+		return Ok(WebResult::NotFine(
+			StatusCode::PRECONDITION_REQUIRED,
+			json!({"missing_entries": missing_entries}),
+		));
 	}
 
 	let mut output = String::new();
 
-	for (w, entries) in week_map.iter() {
+	for (w, entries) in &week_map {
 		writeln!(output, "KW{}", w.week())?;
 		for (e, students) in entries {
 			writeln!(output, "{}", format_entry(&e.state, students))?;

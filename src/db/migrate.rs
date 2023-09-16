@@ -24,8 +24,7 @@ async fn get_generation(db: &Database) -> u32 {
 		)
 		.await
 		.unwrap()
-		.map(|v| v.value.parse().unwrap())
-		.unwrap_or(0);
+		.map_or(0, |v| v.value.parse().unwrap());
 
 	generation
 }
@@ -50,9 +49,9 @@ async fn set_generation(db: &Database, generation: u32) {
 }
 
 pub async fn migrate(db: &Database) {
-	let mut generation = get_generation(db).await;
-
 	const FINAL_GENERATION: u32 = 4;
+
+	let mut generation = get_generation(db).await;
 
 	while generation <= FINAL_GENERATION {
 		info!(generation, "starting migration generation");
@@ -67,9 +66,7 @@ pub async fn migrate(db: &Database) {
 
 		let generation_changed = generation != get_generation(db).await;
 
-		if generation_changed {
-			panic!("Someone else is also running migrations, letting them finish, hopefully we get restarted.");
-		}
+		assert!(!generation_changed, "Someone else is also running migrations, letting them finish, hopefully we get restarted.");
 
 		generation += 1;
 

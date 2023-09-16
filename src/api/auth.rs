@@ -20,9 +20,9 @@ pub fn router() -> Router<AppState> {
 	Router::new().route("/", get(verify))
 }
 
-#[axum::debug_handler]
+#[allow(clippy::unused_async)]
 async fn verify(Extension(UserId(u)): Extension<UserId>) -> (StatusCode, String) {
-	(StatusCode::OK, format!("health check ok - {}", u))
+	(StatusCode::OK, format!("health check ok - {u}"))
 }
 
 pub async fn auth_middleware<B>(

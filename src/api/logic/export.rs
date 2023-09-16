@@ -20,9 +20,7 @@ pub fn format_entry(entry: &EntryState, students: &[Student]) -> String {
 			}
 
 			let present_students = status_map
-				.get(&StudentStatus::Present)
-				.map(|s| format_students(s))
-				.unwrap_or_else(|| "niemand".to_string());
+				.get(&StudentStatus::Present).map_or_else(|| "niemand".to_string(), |s| format_students(s));
 			let pardoned_students = status_map
 				.get(&StudentStatus::Pardoned)
 				.map(|s| format_students(s));
@@ -46,7 +44,7 @@ pub fn format_entry(entry: &EntryState, students: &[Student]) -> String {
 				String::new()
 			};
 
-			format!("{}{}{}", base, pardoned, missing)
+			format!("{base}{pardoned}{missing}")
 		}
 		EntryState::CancelledByStudents => {
 			let students = format_students(students);

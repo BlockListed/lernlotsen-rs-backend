@@ -24,7 +24,10 @@ pub fn get_index_range_timeslot(ts: &TimeSlot, range: Range<IsoWeek>) -> Option<
 	};
 	let end_index: u32 = {
 		if end > ts.timerange.end {
-			(ts.timerange.end - ts.timerange.start).num_weeks().try_into().ok()?
+			(ts.timerange.end - ts.timerange.start)
+				.num_weeks()
+				.try_into()
+				.ok()?
 		} else {
 			(end - ts.timerange.start).num_weeks().try_into().ok()?
 		}

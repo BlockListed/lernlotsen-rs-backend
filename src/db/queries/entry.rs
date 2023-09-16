@@ -35,7 +35,7 @@ pub async fn get_entries_by_timeslot_id(
 					}
 				}
 			})
-			.map(|v| v.into())
+			.map(std::convert::Into::into)
 			.collect()
 			.await)
 	})
@@ -72,7 +72,7 @@ pub async fn get_entries_with_index_in(
 					}
 				}
 			})
-			.map(|v| v.into())
+			.map(std::convert::Into::into)
 			.collect()
 			.await)
 	})

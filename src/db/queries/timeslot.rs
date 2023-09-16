@@ -32,7 +32,7 @@ pub async fn get_timeslots(db: Database, u: UserId) -> anyhow::Result<Vec<TimeSl
 					None
 				}
 			})
-			.map(|v| v.into())
+			.map(std::convert::Into::into)
 			.collect()
 			.await)
 	})
@@ -53,7 +53,7 @@ pub async fn get_timeslot_by_id(
 	let res: anyhow::Result<Option<TimeSlot>> = spawn(async move {
 		let timeslots = collection_timeslots(&db).await;
 
-		Ok(timeslots.find_one(query, None).await?.map(|v| v.into()))
+		Ok(timeslots.find_one(query, None).await?.map(std::convert::Into::into))
 	})
 	.await
 	.unwrap();

@@ -102,7 +102,7 @@ impl Authenticator {
 				jwk,
 				self.validations.iter().map(clone_validation).collect(),
 			) {
-				Ok(jwt) => Ok(jwt),
+				Ok(validated_jwt) => Ok(validated_jwt),
 				Err(e) => match e {
 					ValidationError::InvalidClaims(invalid) => {
 						Err(AuthenticatorError::ClaimsNotVerifiable(invalid))
@@ -119,15 +119,15 @@ impl Authenticator {
 
 		let issuer = claims
 			.get("iss")
-			.and_then(|i| i.as_str())
+			.and_then(serde_json::Value::as_str)
 			.ok_or(AuthenticatorError::Claims("invalid iss"))?;
 
 		let subject = claims
 			.get("sub")
-			.and_then(|i| i.as_str())
+			.and_then(serde_json::Value::as_str)
 			.ok_or(AuthenticatorError::Claims("invalid sub"))?;
 
-		Ok(UserId(format!("{}:{}", issuer, subject)))
+		Ok(UserId(format!("{issuer}:{subject}")))
 	}
 }
 

@@ -69,7 +69,10 @@ pub async fn export(
 		Ok(v) => v,
 		Err(e) => {
 			error!(%e, "error while handling request");
-			NotFine(StatusCode::INTERNAL_SERVER_ERROR, "internal server error".into())
+			NotFine(
+				StatusCode::INTERNAL_SERVER_ERROR,
+				"internal server error".into(),
+			)
 		}
 	}
 }
