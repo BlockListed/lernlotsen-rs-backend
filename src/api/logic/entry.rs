@@ -62,11 +62,13 @@ impl<'a> Iterator for EntriesForTimeslot<'a> {
 			}
 		});
 
-		let date = match date_opt
-		{ Some(d) => d, None => {
-			trace!(index = self.index, "missing entry iterator finished");
-			return None;
-		}};
+		let date = match date_opt {
+			Some(d) => d,
+			None => {
+				trace!(index = self.index, "missing entry iterator finished");
+				return None;
+			}
+		};
 
 		self.index += 1;
 

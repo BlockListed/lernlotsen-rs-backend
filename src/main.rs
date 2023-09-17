@@ -6,6 +6,8 @@
 // I like the match operator
 #![allow(clippy::single_match_else)]
 #![allow(clippy::manual_let_else)]
+// I like using globbed enums
+#![allow(clippy::enum_glob_use)]
 
 use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter};

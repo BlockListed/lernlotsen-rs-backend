@@ -20,7 +20,8 @@ pub fn format_entry(entry: &EntryState, students: &[Student]) -> String {
 			}
 
 			let present_students = status_map
-				.get(&StudentStatus::Present).map_or_else(|| "niemand".to_string(), |s| format_students(s));
+				.get(&StudentStatus::Present)
+				.map_or_else(|| "niemand".to_string(), |s| format_students(s));
 			let pardoned_students = status_map
 				.get(&StudentStatus::Pardoned)
 				.map(|s| format_students(s));

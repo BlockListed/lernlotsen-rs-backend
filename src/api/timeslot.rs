@@ -9,9 +9,8 @@ use uuid::Uuid;
 
 use crate::db::model::TimeSlot;
 
-use crate::api::util::prelude::*;
+use crate::api::util::{prelude::*, WebError};
 use crate::auth::UserId;
-use crate::try_web;
 
 use super::logic::check_object_belong_to_userid;
 use super::AppState;
@@ -27,13 +26,16 @@ pub async fn query(
 		Ok(d) => d,
 		Err(e) => {
 			error!(%e, "error while handling request");
-			return NotFine(StatusCode::INTERNAL_SERVER_ERROR, "internal server error");
+			return Err(WebError::internal_server_error());
 		}
 	};
 
-	try_web!(check_object_belong_to_userid(data.iter(), &u));
+	if let Err(e) = check_object_belong_to_userid(data.iter(), &u) {
+		error!(%e, "objects don't belong to userid");
+		return Err(WebError::internal_server_error());
+	}
 
-	Fine(StatusCode::OK, data)
+	Ok(data.into())
 }
 
 #[derive(Serialize)]
@@ -41,22 +43,23 @@ pub struct TimeslotCreateReturn {
 	id: Uuid,
 }
 
+impl From<Uuid> for TimeslotCreateReturn {
+	fn from(id: Uuid) -> Self {
+		Self { id }
+	}
+}
+
 pub async fn create(
 	State(AppState { db, .. }): State<AppState>,
 	Extension(u): Extension<UserId>,
 	Json(r): Json<TimeslotCreate>,
 ) -> WebResult<TimeslotCreateReturn, &'static str> {
-	let data = match timeslot::create(u, db, r).await {
-		Ok(d) => d,
+	match timeslot::create(u, db, r).await {
+		Ok(d) => d.map(|id| (StatusCode::CREATED, id.into())).transpose(),
 		Err(e) => {
 			error!(%e, "error while handling request");
-			return NotFine(StatusCode::INTERNAL_SERVER_ERROR, "internal server error");
+			Err(WebError::internal_server_error())
 		}
-	};
-
-	match data {
-		Fine(c, id) => Fine(c, TimeslotCreateReturn { id }),
-		NotFine(c, e) => NotFine(c, e),
 	}
 }
 
@@ -66,13 +69,10 @@ pub async fn export(
 	Query(q): Query<ExportRequest>,
 ) -> WebResult<String, Value> {
 	match timeslot::export(u, db, q).await {
-		Ok(v) => v,
+		Ok(v) => v.transpose(),
 		Err(e) => {
 			error!(%e, "error while handling request");
-			NotFine(
-				StatusCode::INTERNAL_SERVER_ERROR,
-				"internal server error".into(),
-			)
+			Err(WebError::internal_server_error())
 		}
 	}
 }

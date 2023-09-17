@@ -53,7 +53,10 @@ pub async fn get_timeslot_by_id(
 	let res: anyhow::Result<Option<TimeSlot>> = spawn(async move {
 		let timeslots = collection_timeslots(&db).await;
 
-		Ok(timeslots.find_one(query, None).await?.map(std::convert::Into::into))
+		Ok(timeslots
+			.find_one(query, None)
+			.await?
+			.map(std::convert::Into::into))
 	})
 	.await
 	.unwrap();

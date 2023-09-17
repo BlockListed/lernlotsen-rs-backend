@@ -57,30 +57,51 @@ pub struct TimeslotCreate {
 	timezone: Tz,
 }
 
+pub enum TimeslotCreateError {
+	TimerangeStartShouldBeWeekday,
+	TimerangeStartShouldBeBeforeEnd,
+	StartTimeShouldBeBeforeEndTime,
+}
+
+#[allow(clippy::from_over_into)]
+impl Into<WebError<&'static str>> for TimeslotCreateError {
+	fn into(self) -> WebError<&'static str> {
+		use TimeslotCreateError::*;
+		match self {
+			TimerangeStartShouldBeWeekday => (
+				StatusCode::UNPROCESSABLE_ENTITY,
+				"weekday of timerange.start should be weekday",
+			)
+				.into(),
+			TimerangeStartShouldBeBeforeEnd => (
+				StatusCode::UNPROCESSABLE_ENTITY,
+				"timerange.start should be before timerange.end",
+			)
+				.into(),
+			StartTimeShouldBeBeforeEndTime => (
+				StatusCode::UNPROCESSABLE_ENTITY,
+				"time.start should be before time.end",
+			)
+				.into(),
+		}
+	}
+}
+
 pub async fn create(
 	u: UserId,
 	db: Database,
 	r: TimeslotCreate,
-) -> anyhow::Result<WebResult<Uuid, &'static str>> {
+) -> anyhow::Result<Result<Uuid, TimeslotCreateError>> {
 	if r.timerange.start.weekday() != r.weekday {
-		return Ok(NotFine(
-			StatusCode::UNPROCESSABLE_ENTITY,
-			"timerange start is the first day.",
-		));
+		return Ok(Err(TimeslotCreateError::TimerangeStartShouldBeWeekday));
 	}
 
 	if r.timerange.start > r.timerange.end {
-		return Ok(NotFine(
-			StatusCode::UNPROCESSABLE_ENTITY,
-			"timerange start should be before end",
-		));
+		return Ok(Err(TimeslotCreateError::TimerangeStartShouldBeBeforeEnd));
 	}
 
 	if r.time.start > r.time.end {
-		return Ok(NotFine(
-			StatusCode::UNPROCESSABLE_ENTITY,
-			"start time should be before end",
-		));
+		return Ok(Err(TimeslotCreateError::StartTimeShouldBeBeforeEndTime));
 	}
 
 	let id = Uuid::new_v4();
@@ -97,7 +118,7 @@ pub async fn create(
 
 	insert_timeslot(db, ts).await?;
 
-	Ok(Fine(StatusCode::CREATED, id))
+	Ok(Ok(id))
 }
 
 #[derive(Deserialize)]
@@ -111,17 +132,46 @@ pub struct ExportRequest {
 	allow_incomplete_week: bool,
 }
 
+pub enum ExportError {
+	InvalidWeekYear,
+	MissingEntries(Vec<(String, Uuid)>),
+}
+
+#[allow(clippy::from_over_into)]
+impl Into<WebError<Value>> for ExportError {
+	fn into(self) -> WebError<Value> {
+		use ExportError::*;
+		match self {
+			InvalidWeekYear => {
+				(StatusCode::UNPROCESSABLE_ENTITY, "invalid_week/year".into()).into()
+			}
+			MissingEntries(entries) => {
+				let entries_json: Vec<_> = entries
+					.into_iter()
+					.map(|(subj, id)| json!({"subject": subj, "id": id}))
+					.collect();
+
+				(
+					StatusCode::PRECONDITION_REQUIRED,
+					json!({"missing_entries": entries_json}),
+				)
+					.into()
+			}
+		}
+	}
+}
+
 pub async fn export(
 	u: UserId,
 	db: Database,
 	q: ExportRequest,
-) -> anyhow::Result<WebResult<String, Value>> {
+) -> anyhow::Result<Result<String, ExportError>> {
 	let Some(start) = create_isoweek(q.start_year, q.start_week) else {
-		return Ok(WebResult::NotFine(StatusCode::UNPROCESSABLE_ENTITY, "invalid week/year".into()));
+		return Ok(Err(ExportError::InvalidWeekYear));
 	};
 
 	let Some(end) = create_isoweek(q.end_year, q.end_week) else {
-		return Ok(WebResult::NotFine(StatusCode::UNPROCESSABLE_ENTITY, "invalid week/year".into()));
+		return Ok(Err(ExportError::InvalidWeekYear));
 	};
 
 	let mut user_timeslots = get_timeslots(db.clone(), u.clone()).await?;
@@ -136,9 +186,7 @@ pub async fn export(
 			.then(a.time.start.cmp(&b.time.start))
 	});
 
-	if let WebResult::NotFine(c, e) = check_object_belong_to_userid(user_timeslots.iter(), &u) {
-		return Ok(WebResult::NotFine(c, e.into()));
-	}
+	check_object_belong_to_userid(user_timeslots.iter(), &u)?;
 
 	let index_ranges = user_timeslots
 		.into_iter()
@@ -158,13 +206,14 @@ pub async fn export(
 				));
 			}
 			None => {
-				let id = i.1.id;
-				debug!(ts=%id, ?start, ?end, "timerange invalid for timeslot");
+				debug!(ts=%i.1.id, ?start, ?end, "timerange invalid for timeslot");
 			}
 		}
 	}
 
-	let entry_results = timeslot_handles.into_iter().collect::<FuturesOrdered<_>>()
+	let entry_results = timeslot_handles
+		.into_iter()
+		.collect::<FuturesOrdered<_>>()
 		.collect::<Vec<_>>()
 		.await;
 
@@ -210,15 +259,7 @@ pub async fn export(
 	}
 
 	if let Some(e) = missing_entry_errors {
-		let missing_entries: Vec<_> = e
-			.into_iter()
-			.map(|(subj, id)| json!({"subject": subj, "id": id}))
-			.collect();
-
-		return Ok(WebResult::NotFine(
-			StatusCode::PRECONDITION_REQUIRED,
-			json!({"missing_entries": missing_entries}),
-		));
+		return Ok(Err(ExportError::MissingEntries(e)));
 	}
 
 	let mut output = String::new();
@@ -230,5 +271,5 @@ pub async fn export(
 		}
 	}
 
-	Ok(WebResult::Fine(StatusCode::OK, output))
+	Ok(Ok(output))
 }

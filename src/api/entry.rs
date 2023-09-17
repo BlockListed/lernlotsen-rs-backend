@@ -2,18 +2,17 @@ use axum::extract::{Json, Path, State};
 use axum::http::StatusCode;
 use axum::Extension;
 
-use serde_json::{json, Value};
+use serde_json::Value;
 
 use tracing::error;
 
 use super::handlers::entry;
-use super::logic::check_object_belong_to_userid;
+use super::logic::check_object_belong_to_userid_weberror;
 use super::util::prelude::*;
 use super::AppState;
 
 use crate::auth::UserId;
 use crate::db::model::Entry;
-use crate::try_web;
 
 pub async fn create(
 	State(AppState { db, .. }): State<AppState>,
@@ -22,13 +21,12 @@ pub async fn create(
 	Json(r): Json<entry::CreateEntry>,
 ) -> WebResult<&'static str, Value> {
 	match entry::create(u, db, r, q).await {
-		Ok(d) => d,
+		Ok(d) => d
+			.map(|_| (StatusCode::CREATED, "created entry"))
+			.transpose(),
 		Err(e) => {
 			error!(%e, "error while handling request");
-			NotFine(
-				StatusCode::INTERNAL_SERVER_ERROR,
-				json!("internal server error"),
-			)
+			Err(WebError::internal_server_error())
 		}
 	}
 }
@@ -42,18 +40,15 @@ pub async fn query(
 		Ok(d) => d,
 		Err(e) => {
 			error!(%e, "error while handling request");
-			return NotFine(StatusCode::INTERNAL_SERVER_ERROR, "internal server error");
+			return Err(WebError::internal_server_error());
 		}
 	};
 
-	match data {
-		Fine(c, d) => {
-			try_web!(check_object_belong_to_userid(d.iter().map(|i| &i.0), &u));
-
-			Fine(c, d)
-		}
-		NotFine(c, e) => NotFine(c, e),
+	if let Ok(d) = data.as_ref() {
+		check_object_belong_to_userid_weberror(d.iter().map(|v| &v.0), &u)?;
 	}
+
+	data.transpose()
 }
 
 pub async fn missing(
@@ -62,10 +57,10 @@ pub async fn missing(
 	Extension(u): Extension<UserId>,
 ) -> WebResult<Vec<(u32, String)>, &'static str> {
 	match entry::missing(u, db, q).await {
-		Ok(d) => d,
+		Ok(d) => d.transpose(),
 		Err(e) => {
 			error!(%e, "error while handling request");
-			NotFine(StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
+			Err(WebError::internal_server_error())
 		}
 	}
 }
@@ -76,10 +71,10 @@ pub async fn next(
 	Extension(u): Extension<UserId>,
 ) -> WebResult<(u32, String), &'static str> {
 	match entry::next(u, db, q).await {
-		Ok(d) => d,
+		Ok(d) => d.transpose(),
 		Err(e) => {
 			error!(%e, "error while handling request");
-			NotFine(StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
+			Err(WebError::internal_server_error())
 		}
 	}
 }

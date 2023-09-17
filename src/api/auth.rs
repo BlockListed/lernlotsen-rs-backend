@@ -32,7 +32,7 @@ pub async fn auth_middleware<B>(
 	next: Next<B>,
 ) -> Response {
 	let Some(auth_token) = cookies.get("auth_token") else {
-		return WebResult::NotFine::<(), _>(StatusCode::UNAUTHORIZED, "missing authorization cookie").into_response();
+		return WebResult::<&'static str, &'static str>::Err((StatusCode::UNAUTHORIZED, "missing authorization cookie").into()).into_response();
 	};
 
 	let auth_status = auth.verify(auth_token).await;
@@ -45,17 +45,15 @@ pub async fn auth_middleware<B>(
 		Err(e) => match e {
 			AuthenticatorError::ClaimsNotVerifiable(v) => {
 				warn!(claims=?v, "authentication claims invalid");
-				return WebResult::NotFine::<(), _>(
-					StatusCode::UNAUTHORIZED,
-					"jwt (maybe no longer) valid",
+				return WebResult::<&'static str, &'static str>::Err(
+					(StatusCode::UNAUTHORIZED, "jwt (maybe no longer) valid").into(),
 				)
 				.into_response();
 			}
 			e => {
 				warn!(%e, "invalid jwt");
-				return WebResult::NotFine::<(), _>(
-					StatusCode::UNPROCESSABLE_ENTITY,
-					"jwt invalid",
+				return WebResult::<&'static str, &'static str>::Err(
+					(StatusCode::UNPROCESSABLE_ENTITY, "jwt invalid").into(),
 				)
 				.into_response();
 			}

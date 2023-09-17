@@ -69,7 +69,8 @@ pub async fn run(db: Database, cfg: Config) {
 			TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
 				let request_id = request
 					.extensions()
-					.get::<RequestId>().map_or_else(|| "unknown".into(), ToString::to_string);
+					.get::<RequestId>()
+					.map_or_else(|| "unknown".into(), ToString::to_string);
 
 				info_span!("request", id = %request_id, method = %request.method(), uri = %request.uri())
 			}),

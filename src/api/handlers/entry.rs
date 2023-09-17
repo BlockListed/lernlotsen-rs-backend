@@ -10,31 +10,40 @@ use serde_json::{json, Value};
 use crate::api::logic::entry::{
 	get_time_from_index_and_timeslot, missing_entries, next_entry_date_timeslot, verify_state,
 };
-use crate::api::util::WebResult;
+use crate::api::util::prelude::*;
 use crate::auth::UserId;
 use crate::db::queries::entry::{get_entries_by_timeslot_id, insert_entry, InsertEntryError};
 use crate::db::queries::timeslot::get_timeslot_by_id;
 
-use crate::db::model::{BsonEntry, Entry, EntryState, TimeSlot};
+use crate::db::model::{BsonEntry, Entry, EntryState, Student, TimeSlot};
 
 #[derive(Deserialize)]
 pub struct TimeSlotQuery {
 	pub id: Uuid,
 }
 
+pub enum TimeslotQueryError {
+	TimeslotNotFound,
+}
+
+#[allow(clippy::from_over_into)]
+impl Into<WebError<&'static str>> for TimeslotQueryError {
+	fn into(self) -> WebError<&'static str> {
+		use TimeslotQueryError::*;
+		match self {
+			TimeslotNotFound => (StatusCode::NOT_FOUND, "timeslot not found").into(),
+		}
+	}
+}
+
 pub async fn query(
 	u: UserId,
 	db: Database,
 	q: TimeSlotQuery,
-) -> anyhow::Result<WebResult<Vec<(Entry, String)>, &'static str>> {
+) -> anyhow::Result<Result<Vec<(Entry, String)>, TimeslotQueryError>> {
 	let timeslot: TimeSlot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await? {
 		Some(x) => x,
-		None => {
-			return Ok(WebResult::NotFine(
-				StatusCode::NOT_FOUND,
-				"timeslot not found",
-			))
-		}
+		None => return Ok(Err(TimeslotQueryError::TimeslotNotFound)),
 	};
 
 	let res: Vec<_> = get_entries_by_timeslot_id(db, u, timeslot.id).await?
@@ -50,28 +59,36 @@ pub async fn query(
 		})
 		.collect::<Vec<_>>();
 
-	Ok(WebResult::Fine(StatusCode::OK, res))
+	Ok(Ok(res))
+}
+
+pub enum MissingEntriesError {
+	TimeslotNotFound,
+}
+
+#[allow(clippy::from_over_into)]
+impl Into<WebError<&'static str>> for MissingEntriesError {
+	fn into(self) -> WebError<&'static str> {
+		use MissingEntriesError::*;
+		match self {
+			TimeslotNotFound => (StatusCode::NOT_FOUND, "timeslot not found").into(),
+		}
+	}
 }
 
 pub async fn missing(
 	u: UserId,
 	db: Database,
 	q: TimeSlotQuery,
-) -> anyhow::Result<WebResult<Vec<(u32, String)>, &'static str>> {
+) -> anyhow::Result<Result<Vec<(u32, String)>, MissingEntriesError>> {
 	let timeslot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await? {
 		Some(v) => v,
 		None => {
-			return Ok(WebResult::NotFine(
-				StatusCode::NOT_FOUND,
-				"timeslot not found",
-			));
+			return Ok(Err(MissingEntriesError::TimeslotNotFound));
 		}
 	};
 
-	Ok(WebResult::Fine(
-		StatusCode::OK,
-		missing_entries(db, u, timeslot).await?,
-	))
+	Ok(Ok(missing_entries(db, u, timeslot).await?))
 }
 
 #[derive(Deserialize, Debug)]
@@ -80,19 +97,38 @@ pub struct CreateEntry {
 	index: u32,
 }
 
+pub enum CreateEntryError {
+	TimeslotNotFound,
+	InvalidStudents(Vec<Student>),
+	DuplicateIndex,
+}
+
+#[allow(clippy::from_over_into)]
+impl Into<WebError<Value>> for CreateEntryError {
+	fn into(self) -> WebError<Value> {
+		use CreateEntryError::*;
+		match self {
+			TimeslotNotFound => (StatusCode::NOT_FOUND, "timeslot not found".into()).into(),
+			InvalidStudents(s) => (
+				StatusCode::UNPROCESSABLE_ENTITY,
+				json!({"invalid_students": s}),
+			)
+				.into(),
+			DuplicateIndex => (StatusCode::CONFLICT, "duplicate index".into()).into(),
+		}
+	}
+}
+
 pub async fn create(
 	u: UserId,
 	db: Database,
 	r: CreateEntry,
 	q: TimeSlotQuery,
-) -> anyhow::Result<WebResult<&'static str, Value>> {
+) -> anyhow::Result<Result<(), CreateEntryError>> {
 	let selected_timeslot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await? {
 		Some(x) => x,
 		None => {
-			return Ok(WebResult::NotFine(
-				StatusCode::NOT_FOUND,
-				json!("timeslot not found"),
-			));
+			return Ok(Err(CreateEntryError::TimeslotNotFound));
 		}
 	};
 
@@ -110,12 +146,7 @@ pub async fn create(
 		},
 		Err(s) => {
 			debug!("request contained invalid students");
-			return Ok(WebResult::NotFine(
-				StatusCode::UNPROCESSABLE_ENTITY,
-				json!({
-					"invalid_students": s,
-				}),
-			));
+			return Ok(Err(CreateEntryError::InvalidStudents(s)));
 		}
 	};
 
@@ -123,7 +154,7 @@ pub async fn create(
 		Ok(_) => (),
 		Err(e) => match e {
 			InsertEntryError::Duplicate => {
-				return Ok(WebResult::Fine(StatusCode::CONFLICT, "duplicate index"));
+				return Ok(Err(CreateEntryError::DuplicateIndex));
 			}
 			InsertEntryError::Other(e) => {
 				Err(e)?;
@@ -131,28 +162,34 @@ pub async fn create(
 		},
 	};
 
-	Ok(WebResult::Fine(StatusCode::CREATED, "created entry"))
+	Ok(Ok(()))
+}
+
+pub enum NextEntryError {
+	TimeslotNotFound,
+}
+
+#[allow(clippy::from_over_into)]
+impl Into<WebError<&'static str>> for NextEntryError {
+	fn into(self) -> WebError<&'static str> {
+		use NextEntryError::*;
+		match self {
+			TimeslotNotFound => (StatusCode::NOT_FOUND, "timeslot not found").into(),
+		}
+	}
 }
 
 pub async fn next(
 	u: UserId,
 	db: Database,
 	q: TimeSlotQuery,
-) -> anyhow::Result<WebResult<(u32, String), &'static str>> {
+) -> anyhow::Result<Result<(u32, String), NextEntryError>> {
 	let ts = match get_timeslot_by_id(db, u, q.id).await? {
 		Some(d) => d,
-		None => {
-			return Ok(WebResult::NotFine(
-				StatusCode::NOT_FOUND,
-				"timeslot not found",
-			))
-		}
+		None => return Ok(Err(NextEntryError::TimeslotNotFound)),
 	};
 
-	Ok(WebResult::Fine(
-		StatusCode::OK,
-		next_entry_date_timeslot(&ts)
-			.map(|(i, d)| (i, d.to_rfc3339()))
-			.context("timezone issue")?,
-	))
+	Ok(Ok(next_entry_date_timeslot(&ts)
+		.map(|(i, d)| (i, d.to_rfc3339()))
+		.context("timezone issue")?))
 }
