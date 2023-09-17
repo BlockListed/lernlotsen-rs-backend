@@ -12,7 +12,7 @@ use crate::db::model::TimeSlot;
 use crate::api::util::{prelude::*, WebError};
 use crate::auth::UserId;
 
-use super::logic::check_object_belong_to_userid;
+use super::logic::check_object_belong_to_userid_weberror;
 use super::AppState;
 
 use super::handlers::timeslot::{self, ExportRequest, TimeSlotQuery, TimeslotCreate};
@@ -30,10 +30,7 @@ pub async fn query(
 		}
 	};
 
-	if let Err(e) = check_object_belong_to_userid(data.iter(), &u) {
-		error!(%e, "objects don't belong to userid");
-		return Err(WebError::internal_server_error());
-	}
+	check_object_belong_to_userid_weberror(data.iter(), &u)?;
 
 	Ok(data.into())
 }
