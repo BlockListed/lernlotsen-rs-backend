@@ -283,24 +283,24 @@ pub async fn home_information(
 	let timeslots = query(u.clone(), db.clone(), TimeSlotQuery { id: None }).await?;
 
 	let next_missing = futures_util::future::join_all(timeslots.iter().map(|ts| {
-		let id = ts.id.clone();
+		let id = ts.id;
 		let u = u.clone();
 		let db = db.clone();
 		tokio::spawn(async move {
 			let next = handlers::entry::next(
 				u.clone(),
 				db.clone(),
-				handlers::entry::TimeSlotQuery { id: id.clone() },
+				handlers::entry::TimeSlotQuery { id },
 			);
 			let missing = handlers::entry::missing(
 				u.clone(),
 				db.clone(),
-				handlers::entry::TimeSlotQuery { id: id.clone() },
+				handlers::entry::TimeSlotQuery { id },
 			);
 
 			tokio::join!(next, missing)
 		})
-		.map(|r| r.unwrap())
+		.map(Result::unwrap)
 	}))
 	.await;
 
@@ -335,5 +335,5 @@ pub async fn home_information(
 		})
 		.try_collect();
 
-	Ok(res?)
+	res
 }
