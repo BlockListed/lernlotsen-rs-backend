@@ -8,12 +8,14 @@ use chrono::{Datelike, IsoWeek, NaiveDate, NaiveTime, Weekday};
 use chrono_tz::Tz;
 use futures_util::stream::FuturesOrdered;
 use futures_util::{FutureExt, StreamExt};
+use itertools::Itertools;
 use mongodb::Database;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use tracing::debug;
 use uuid::Uuid;
 
+use crate::api::handlers;
 use crate::api::logic::check_object_belong_to_userid;
 use crate::api::logic::entry::get_time_from_index_and_timeslot;
 use crate::api::logic::export::format_entry;
@@ -272,4 +274,66 @@ pub async fn export(
 	}
 
 	Ok(Ok(output))
+}
+
+pub async fn home_information(
+	u: UserId,
+	db: Database,
+) -> anyhow::Result<Vec<(TimeSlot, (u32, String), Vec<(u32, String)>)>> {
+	let timeslots = query(u.clone(), db.clone(), TimeSlotQuery { id: None }).await?;
+
+	let next_missing = futures_util::future::join_all(timeslots.iter().map(|ts| {
+		let id = ts.id.clone();
+		let u = u.clone();
+		let db = db.clone();
+		tokio::spawn(async move {
+			let next = handlers::entry::next(
+				u.clone(),
+				db.clone(),
+				handlers::entry::TimeSlotQuery { id: id.clone() },
+			);
+			let missing = handlers::entry::missing(
+				u.clone(),
+				db.clone(),
+				handlers::entry::TimeSlotQuery { id: id.clone() },
+			);
+
+			futures_util::future::join(next, missing).await
+		})
+		.map(|r| r.unwrap())
+	}))
+	.await;
+
+	assert!(
+		timeslots.len() == next_missing.len(),
+		"length of next missing not equal to timeslots"
+	);
+
+	let res: anyhow::Result<_> = timeslots
+		.into_iter()
+		.zip(next_missing.into_iter())
+		.map(|(ts, (next_res, missing_res))| {
+			let next = next_res.and_then(|v| match v {
+				Ok(v) => Ok(v),
+				Err(e) => match e {
+					handlers::entry::NextEntryError::TimeslotNotFound => {
+						Err(anyhow::anyhow!("Timeslot went missing during handler call"))
+					}
+				},
+			})?;
+
+			let missing = missing_res.and_then(|v| match v {
+				Ok(v) => Ok(v),
+				Err(e) => match e {
+					handlers::entry::MissingEntriesError::TimeslotNotFound => {
+						Err(anyhow::anyhow!("Timeslot went missing during handler call"))
+					}
+				},
+			})?;
+
+			anyhow::Result::<_>::Ok((ts, next, missing))
+		})
+		.try_collect();
+
+	Ok(res?)
 }

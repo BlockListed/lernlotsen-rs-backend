@@ -59,6 +59,11 @@ pub async fn run(db: Database, cfg: Config) {
 		)
 		.route("/timeslots/:id/entries/next", get(entry::next))
 		.route("/timeslots/:id/entries/missing", get(entry::missing))
+		// TODO: RENAME
+		.route(
+			"/timeslos/home_information",
+			get(timeslot::home_information),
+		)
 		.nest("/verify", auth::router())
 		.with_state(state)
 		.layer(axum::middleware::from_fn_with_state(
