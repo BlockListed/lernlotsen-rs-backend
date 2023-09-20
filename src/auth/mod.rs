@@ -1,4 +1,4 @@
-use std::time::{Duration, Instant};
+use std::{time::{Duration, Instant}, sync::Arc};
 
 use tokio::sync::RwLock;
 
@@ -33,7 +33,7 @@ pub enum AuthenticatorError {
 }
 
 #[derive(Clone)]
-pub struct UserId(String);
+pub struct UserId(Arc<str>);
 
 impl UserId {
 	pub fn as_str(&self) -> &str {
@@ -133,7 +133,7 @@ impl Authenticator {
 			.and_then(serde_json::Value::as_str)
 			.ok_or(AuthenticatorError::Claims("invalid sub"))?;
 
-		Ok(UserId(format!("{issuer}:{subject}")))
+		Ok(UserId(format!("{issuer}:{subject}").into()))
 	}
 }
 
