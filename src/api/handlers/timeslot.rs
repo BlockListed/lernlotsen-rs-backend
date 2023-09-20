@@ -298,7 +298,7 @@ pub async fn home_information(
 				handlers::entry::TimeSlotQuery { id: id.clone() },
 			);
 
-			futures_util::future::join(next, missing).await
+			tokio::join!(next, missing)
 		})
 		.map(|r| r.unwrap())
 	}))
