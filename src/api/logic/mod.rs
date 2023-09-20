@@ -14,7 +14,7 @@ pub fn check_object_belong_to_userid<'a, T: HasUserId + 'a>(
 	mut entries: impl Iterator<Item = &'a T>,
 	user_id: &UserId,
 ) -> anyhow::Result<()> {
-	let Some(invalid) = entries.find(|i| i.user_id() != user_id.0) else {
+	let Some(invalid) = entries.find(|i| i.user_id() != user_id.as_str()) else {
 		return Ok(())
 	};
 

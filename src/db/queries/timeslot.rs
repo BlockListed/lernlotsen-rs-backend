@@ -15,7 +15,7 @@ use crate::{
 
 pub async fn get_timeslots(db: Database, u: UserId) -> anyhow::Result<Vec<TimeSlot>> {
 	let query = doc! {
-		"user_id": u.0,
+		"user_id": u.as_str(),
 	};
 
 	spawn(async move {
@@ -46,7 +46,7 @@ pub async fn get_timeslot_by_id(
 	id: Uuid,
 ) -> anyhow::Result<Option<TimeSlot>> {
 	let query = doc! {
-		"user_id": u.0,
+		"user_id": u.as_str(),
 		"id": id,
 	};
 

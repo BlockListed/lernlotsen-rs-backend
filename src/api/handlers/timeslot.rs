@@ -108,7 +108,7 @@ pub async fn create(
 
 	let id = Uuid::new_v4();
 	let ts = BsonTimeSlot {
-		user_id: u.0.clone(),
+		user_id: u.as_str().to_owned(),
 		id: id.into(),
 		subject: r.subject,
 		students: r.students,

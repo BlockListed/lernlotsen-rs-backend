@@ -17,7 +17,7 @@ pub async fn get_entries_by_timeslot_id(
 ) -> anyhow::Result<Vec<Entry>> {
 	let query = doc! {
 		"timeslot_id": id,
-		"user_id": u.0,
+		"user_id": u.as_str(),
 	};
 
 	spawn(async move {
@@ -51,7 +51,7 @@ pub async fn get_entries_with_index_in(
 ) -> anyhow::Result<Vec<Entry>> {
 	let query = doc! {
 		"timeslot_id": timeslot_id,
-		"user_id": u.0,
+		"user_id": u.as_str(),
 		"index": {
 			"$in": indexes,
 		}
@@ -123,7 +123,7 @@ pub async fn get_entry_by_index_range(
 	index_range: Range<u32>,
 ) -> anyhow::Result<Vec<Entry>> {
 	let query = doc! {
-		"user_id": u.0,
+		"user_id": u.as_str(),
 		"timeslot_id": id,
 		"index": {
 			"$gte": index_range.start,

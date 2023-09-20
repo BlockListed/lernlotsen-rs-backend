@@ -133,13 +133,13 @@ pub async fn create(
 	};
 
 	anyhow::ensure!(
-		selected_timeslot.user_id == u.0,
+		selected_timeslot.user_id == u.as_str(),
 		"timeslot user_id is not equal to clients user_id"
 	);
 
 	let entry = match verify_state(&r.state, &selected_timeslot.students) {
 		Ok(_) => BsonEntry {
-			user_id: u.0,
+			user_id: u.as_str().to_owned(),
 			index: r.index,
 			timeslot_id: selected_timeslot.id.into(),
 			state: r.state,

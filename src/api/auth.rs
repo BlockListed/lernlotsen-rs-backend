@@ -21,8 +21,8 @@ pub fn router() -> Router<AppState> {
 }
 
 #[allow(clippy::unused_async)]
-async fn verify(Extension(UserId(u)): Extension<UserId>) -> (StatusCode, String) {
-	(StatusCode::OK, format!("health check ok - {u}"))
+async fn verify(Extension(u): Extension<UserId>) -> (StatusCode, String) {
+	(StatusCode::OK, format!("health check ok - {}", u.as_str()))
 }
 
 pub async fn auth_middleware<B>(

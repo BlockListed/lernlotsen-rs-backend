@@ -33,7 +33,13 @@ pub enum AuthenticatorError {
 }
 
 #[derive(Clone)]
-pub struct UserId(pub String);
+pub struct UserId(String);
+
+impl UserId {
+	pub fn as_str(&self) -> &str {
+		&self.0
+	}
+}
 
 impl Authenticator {
 	pub async fn new(jwks_domain: &str, max_age: Duration, audience: &str) -> Self {
