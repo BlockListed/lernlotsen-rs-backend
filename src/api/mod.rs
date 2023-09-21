@@ -61,7 +61,7 @@ pub async fn run(db: Database, cfg: Config) {
 		.route("/timeslots/:id/entries/missing", get(entry::missing))
 		// TODO: RENAME
 		.route(
-			"/timeslos/home_information",
+			"/timeslots/home_information",
 			get(timeslot::home_information),
 		)
 		.nest("/verify", auth::router())
