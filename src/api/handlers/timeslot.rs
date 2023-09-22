@@ -276,7 +276,7 @@ pub async fn export(
 	Ok(Ok(output))
 }
 
-pub async fn home_information(
+pub async fn information(
 	u: UserId,
 	db: Database,
 ) -> anyhow::Result<Vec<(TimeSlot, (u32, String), Vec<(u32, String)>)>> {

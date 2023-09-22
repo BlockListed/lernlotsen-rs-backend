@@ -74,11 +74,11 @@ pub async fn export(
 	}
 }
 
-pub async fn home_information(
+pub async fn information(
 	State(AppState { db, .. }): State<AppState>,
 	Extension(u): Extension<UserId>,
 ) -> WebResult<Vec<(TimeSlot, (u32, String), Vec<(u32, String)>)>, &'static str> {
-	match timeslot::home_information(u, db).await {
+	match timeslot::information(u, db).await {
 		Ok(v) => Ok(v.into()),
 		Err(e) => {
 			error!(%e, "error while handling requst");
