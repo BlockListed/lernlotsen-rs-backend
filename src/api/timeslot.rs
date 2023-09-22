@@ -86,3 +86,22 @@ pub async fn information(
 		}
 	}
 }
+
+pub async fn information_length(
+	State(AppState { db, .. }): State<AppState>,
+	Extension(u): Extension<UserId>,
+) -> WebResult<Vec<(TimeSlot, (u32, String), u32)>, &'static str> {
+	match timeslot::information(u, db).await {
+		Ok(v) => {
+			let res: Vec<_> = v.into_iter()
+				.map(|(ts, next, missing)| (ts, next, missing.len().try_into().unwrap()))
+				.collect();
+
+			Ok(res.into())
+		},
+		Err(e) => {
+			error!(%e, "error while handling request");
+			Err(WebError::internal_server_error())
+		}
+	}
+}

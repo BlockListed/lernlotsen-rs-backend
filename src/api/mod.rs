@@ -60,7 +60,7 @@ pub async fn run(db: Database, cfg: Config) {
 		)
 		.route("/timeslots/:id/entries/next", get(entry::next))
 		.route("/timeslots/:id/entries/missing", get(entry::missing))
-		// TODO: RENAME
+		.route("/timeslots/information", get(timeslot::information_length))
 		.route(
 			"/timeslots/home_information",
 			get(timeslot::information),
