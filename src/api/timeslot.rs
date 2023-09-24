@@ -74,19 +74,6 @@ pub async fn export(
 	}
 }
 
-pub async fn information(
-	State(AppState { db, .. }): State<AppState>,
-	Extension(u): Extension<UserId>,
-) -> WebResult<Vec<(TimeSlot, (u32, String), Vec<(u32, String)>)>, &'static str> {
-	match timeslot::information(u, db).await {
-		Ok(v) => Ok(v.into()),
-		Err(e) => {
-			error!(%e, "error while handling requst");
-			Err(WebError::internal_server_error())
-		}
-	}
-}
-
 pub async fn information_length(
 	State(AppState { db, .. }): State<AppState>,
 	Extension(u): Extension<UserId>,
