@@ -306,7 +306,7 @@ pub async fn information(
 		"length of next missing not equal to timeslots"
 	);
 
-	let res: anyhow::Result<_> = timeslots
+	let res: anyhow::Result<Vec<_>> = timeslots
 		.into_iter()
 		.zip(next_missing.into_iter())
 		.map(|(ts, (next_res, missing_res))| {
@@ -332,9 +332,10 @@ pub async fn information(
 		})
 		.try_collect();
 
-	// SORTING: These get sorted in the client,
-	// because that was already implemented.
-	// Should probably be moved here.
+	let mut res = res?;
 
-	res
+	// I know this is horrible.
+	res.sort_unstable_by_key(|v| chrono::DateTime::parse_from_rfc3339(&v.1.1).unwrap());
+
+	Ok(res)
 }
