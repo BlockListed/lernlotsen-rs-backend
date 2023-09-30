@@ -47,8 +47,8 @@ pub async fn query(u: UserId, db: Database, q: TimeSlotQuery) -> anyhow::Result<
 	};
 
 	res.sort_by(|a, b| {
-		b.weekday.num_days_from_monday().cmp(&a.weekday.num_days_from_monday())
-			.then_with(|| b.time.start.cmp(&a.time.start))
+		a.weekday.num_days_from_monday().cmp(&b.weekday.num_days_from_monday())
+			.then_with(|| a.time.start.cmp(&b.time.start))
 	});
 
 	Ok(res)
