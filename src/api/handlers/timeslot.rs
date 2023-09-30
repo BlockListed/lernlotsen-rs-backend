@@ -33,7 +33,7 @@ pub struct TimeSlotQuery {
 }
 
 pub async fn query(u: UserId, db: Database, q: TimeSlotQuery) -> anyhow::Result<Vec<TimeSlot>> {
-	let mut res = match q.id {
+	let res = match q.id {
 		Some(id) => {
 			let mut output = Vec::new();
 
@@ -45,11 +45,6 @@ pub async fn query(u: UserId, db: Database, q: TimeSlotQuery) -> anyhow::Result<
 		}
 		None => get_timeslots(db, u).await?,
 	};
-
-	res.sort_by(|a, b| {
-		b.weekday.num_days_from_monday().cmp(&a.weekday.num_days_from_monday())
-			.then_with(|| b.time.start.cmp(&a.time.start))
-	});
 
 	Ok(res)
 }
