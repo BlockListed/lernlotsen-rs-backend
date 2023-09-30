@@ -46,7 +46,7 @@ pub async fn query(
 		None => return Ok(Err(TimeslotQueryError::TimeslotNotFound)),
 	};
 
-	let res: Vec<_> = get_entries_by_timeslot_id(db, u, timeslot.id).await?
+	let mut res: Vec<_> = get_entries_by_timeslot_id(db, u, timeslot.id).await?
 		.drain(..)
 		.filter_map(|v| {
 			let entry: Entry = v;
@@ -58,6 +58,10 @@ pub async fn query(
 			Some((entry, time.to_rfc3339()))
 		})
 		.collect::<Vec<_>>();
+
+	res.sort_unstable_by(|a, b| {
+		b.0.index.cmp(&a.0.index)
+	});
 
 	Ok(Ok(res))
 }
