@@ -332,5 +332,9 @@ pub async fn information(
 		})
 		.try_collect();
 
+	// SORTING: These get sorted in the client,
+	// because that was already implemented.
+	// Should probably be moved here.
+
 	res
 }
