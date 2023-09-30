@@ -1,4 +1,7 @@
-use std::{time::{Duration, Instant}, sync::Arc};
+use std::{
+	sync::Arc,
+	time::{Duration, Instant},
+};
 
 use tokio::sync::RwLock;
 

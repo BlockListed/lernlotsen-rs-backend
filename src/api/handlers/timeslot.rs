@@ -287,11 +287,8 @@ pub async fn information(
 		let u = u.clone();
 		let db = db.clone();
 		tokio::spawn(async move {
-			let next = handlers::entry::next(
-				u.clone(),
-				db.clone(),
-				handlers::entry::TimeSlotQuery { id },
-			);
+			let next =
+				handlers::entry::next(u.clone(), db.clone(), handlers::entry::TimeSlotQuery { id });
 			let missing = handlers::entry::missing(
 				u.clone(),
 				db.clone(),

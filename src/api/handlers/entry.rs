@@ -59,9 +59,7 @@ pub async fn query(
 		})
 		.collect::<Vec<_>>();
 
-	res.sort_unstable_by(|a, b| {
-		b.0.index.cmp(&a.0.index)
-	});
+	res.sort_unstable_by(|a, b| b.0.index.cmp(&a.0.index));
 
 	Ok(Ok(res))
 }

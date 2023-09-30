@@ -33,7 +33,7 @@ pub struct AppState {
 pub async fn run(db: Database, cfg: Config) {
 	let hosturl = cfg.hosturl;
 
-    // TODO: Authenticator should probably be created in main.
+	// TODO: Authenticator should probably be created in main.
 	let auth = Arc::new(
 		Authenticator::new(
 			cfg.auth.domain.as_str(),
