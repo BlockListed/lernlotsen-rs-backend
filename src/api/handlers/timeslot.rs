@@ -344,7 +344,7 @@ pub async fn information(
 pub struct InformationV2ResponseItem {
 	ts: TimeSlot,
 	next: (u32, String),
-	missing: Vec<(u32, String)>,
+	missing: u32,
 }
 
 pub type InformationV2Response = Vec<InformationV2ResponseItem>;
@@ -355,7 +355,7 @@ pub async fn information_v2(
 ) -> anyhow::Result<Vec<InformationV2ResponseItem>> {
 	information(u, db).await.map(|v| {
 		v.into_iter()
-			.map(|(ts, next, missing)| InformationV2ResponseItem { ts, next, missing })
+			.map(|(ts, next, missing)| InformationV2ResponseItem { ts, next, missing: missing.len().try_into().unwrap() })
 			.collect()
 	})
 }

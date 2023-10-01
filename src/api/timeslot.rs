@@ -93,3 +93,16 @@ pub async fn information_length(
 		}
 	}
 }
+
+pub async fn information_length_v2(
+	State(AppState { db, .. }): State<AppState>,
+	Extension(u): Extension<UserId>,
+) -> WebResult<timeslot::InformationV2Response, &'static str> {
+	match timeslot::information_v2(u, db).await {
+		Ok(v) => Ok(v.into()),
+		Err(e) => {
+			error!(%e, "error while handling request");
+			Err(WebError::internal_server_error())
+		}
+	}
+}
