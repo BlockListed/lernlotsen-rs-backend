@@ -278,10 +278,28 @@ pub async fn export(
 	Ok(Ok(output))
 }
 
+#[derive(Serialize)]
+pub struct InformationV2ResponseItem {
+    pub ts: TimeSlot,
+    pub next: (u32, String),
+	pub missing: u32,
+}
+
+pub type InformationV2Response = Vec<InformationV2ResponseItem>;
+
+#[derive(Serialize)]
+pub struct InformationV3ResponseItem {
+	ts: TimeSlot,
+	next: UnfilledEntry,
+	missing: u32,
+}
+
+pub type InformationV3Response = Vec<InformationV3ResponseItem>;
+
 pub async fn information(
 	u: UserId,
 	db: Database,
-) -> anyhow::Result<Vec<(TimeSlot, (u32, String), Vec<(u32, String)>)>> {
+) -> anyhow::Result<InformationV3Response> {
 	let timeslots = query(u.clone(), db.clone(), TimeSlotQuery { id: None }).await?;
 
 	let next_missing = futures_util::future::join_all(timeslots.iter().map(|ts| {
@@ -313,7 +331,7 @@ pub async fn information(
 		.zip(next_missing.into_iter())
 		.map(|(ts, (next_res, missing_res))| {
 			let next = next_res.and_then(|v| match v {
-				Ok(e) => Ok((e.index, e.timestamp.to_rfc3339())),
+				Ok(v) => Ok(v),
 				Err(e) => match e {
 					handlers::entry::NextEntryError::TimeslotNotFound => {
 						Err(anyhow::anyhow!("Timeslot went missing during handler call"))
@@ -322,7 +340,7 @@ pub async fn information(
 			})?;
 
 			let missing = missing_res.and_then(|v| match v {
-				Ok(v) => Ok(v.into_iter().map(|e| (e.index, e.timestamp.to_rfc3339())).collect()),
+				Ok(v) => Ok(v.len().try_into().unwrap()),
 				Err(e) => match e {
 					handlers::entry::MissingEntriesError::TimeslotNotFound => {
 						Err(anyhow::anyhow!("Timeslot went missing during handler call"))
@@ -330,54 +348,25 @@ pub async fn information(
 				},
 			})?;
 
-			anyhow::Result::<_>::Ok((ts, next, missing))
+			anyhow::Result::<_>::Ok(InformationV3ResponseItem {
+				ts,
+				next,
+				missing,
+			})
 		})
 		.try_collect();
 
 	let mut res = res?;
 
 	// I know this is horrible.
-	res.sort_unstable_by_key(|v| chrono::DateTime::parse_from_rfc3339(&v.1 .1).unwrap());
+	res.sort_unstable_by_key(|v| v.next.timestamp);
 
 	Ok(res)
 }
 
-#[derive(Serialize)]
-pub struct InformationV2ResponseItem {
-	ts: TimeSlot,
-	next: (u32, String),
-	missing: u32,
-}
-
-pub type InformationV2Response = Vec<InformationV2ResponseItem>;
-
-pub async fn information_v2(
-	u: UserId,
-	db: Database,
-) -> anyhow::Result<Vec<InformationV2ResponseItem>> {
-	information(u, db).await.map(|v| {
-		v.into_iter()
-			.map(|(ts, next, missing)| InformationV2ResponseItem { ts, next, missing: missing.len().try_into().unwrap() })
-			.collect()
-	})
-}
-
-#[derive(Serialize)]
-pub struct InformationV3ResponseItem {
-	ts: TimeSlot,
-	next: UnfilledEntry,
-	missing: u32,
-}
-
-pub type InformationV3Response = Vec<InformationV3ResponseItem>;
-
-pub async fn information_v3(
-	u: UserId,
-	db: Database,
-) -> anyhow::Result<Vec<InformationV3ResponseItem>> {
-	information(u, db).await.map(|v| {
-		v.into_iter()
-			.map(|(ts, next, missing)| InformationV3ResponseItem { ts, next: UnfilledEntry { index: next.0, timestamp: DateTime::parse_from_rfc3339(&next.1).unwrap() }, missing: missing.len().try_into().unwrap() })
-			.collect()
-	})
+pub async fn information_old(u: UserId, db: Database) -> anyhow::Result<Vec<(TimeSlot, (u32, String), u32)>> {
+	information(u, db).await
+		.map(|v| v.into_iter().map(|e| {
+			(e.ts, (e.next.index, e.next.timestamp.to_rfc3339()), e.missing)
+		}).collect())
 }

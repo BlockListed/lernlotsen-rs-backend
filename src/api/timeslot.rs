@@ -15,7 +15,7 @@ use crate::auth::UserId;
 use super::logic::check_object_belong_to_userid_weberror;
 use super::AppState;
 
-use super::handlers::timeslot::{self, ExportRequest, TimeSlotQuery, TimeslotCreate};
+use super::handlers::timeslot::{self, ExportRequest, TimeSlotQuery, TimeslotCreate, InformationV2ResponseItem};
 
 pub async fn query(
 	State(AppState { db, .. }): State<AppState>,
@@ -78,11 +78,10 @@ pub async fn information_length(
 	State(AppState { db, .. }): State<AppState>,
 	Extension(u): Extension<UserId>,
 ) -> WebResult<Vec<(TimeSlot, (u32, String), u32)>, &'static str> {
-	match timeslot::information(u, db).await {
+	match timeslot::information_old(u, db).await {
 		Ok(v) => {
 			let res: Vec<_> = v
 				.into_iter()
-				.map(|(ts, next, missing)| (ts, next, missing.len().try_into().unwrap()))
 				.collect();
 
 			Ok(res.into())
@@ -98,8 +97,8 @@ pub async fn information_length_v2(
 	State(AppState { db, .. }): State<AppState>,
 	Extension(u): Extension<UserId>,
 ) -> WebResult<timeslot::InformationV2Response, &'static str> {
-	match timeslot::information_v2(u, db).await {
-		Ok(v) => Ok(v.into()),
+	match timeslot::information_old(u, db).await {
+		Ok(v) => Ok(v.into_iter().map(|(ts, next, missing)| InformationV2ResponseItem { ts, next, missing }).collect::<Vec<_>>().into()),
 		Err(e) => {
 			error!(%e, "error while handling request");
 			Err(WebError::internal_server_error())
@@ -111,7 +110,7 @@ pub async fn information_length_v3(
 	State(AppState { db, .. }): State<AppState>,
 	Extension(u): Extension<UserId>,
 ) -> WebResult<timeslot::InformationV3Response, &'static str> {
-	match timeslot::information_v3(u, db).await {
+	match timeslot::information(u, db).await {
 		Ok(v) => Ok(v.into()),
 		Err(e) => {
 			error!(%e, "error while handling request");
