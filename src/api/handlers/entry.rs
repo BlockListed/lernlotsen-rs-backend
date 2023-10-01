@@ -1,5 +1,6 @@
 use anyhow::Context;
 use axum::http::StatusCode;
+use chrono::{DateTime, FixedOffset};
 use mongodb::Database;
 use tracing::{debug, error};
 use uuid::Uuid;
@@ -185,13 +186,13 @@ pub async fn next(
 	u: UserId,
 	db: Database,
 	q: TimeSlotQuery,
-) -> anyhow::Result<Result<(u32, String), NextEntryError>> {
+) -> anyhow::Result<Result<(u32, DateTime<FixedOffset>), NextEntryError>> {
 	let ts = match get_timeslot_by_id(db, u, q.id).await? {
 		Some(d) => d,
 		None => return Ok(Err(NextEntryError::TimeslotNotFound)),
 	};
 
 	Ok(Ok(next_entry_date_timeslot(&ts)
-		.map(|(i, d)| (i, d.to_rfc3339()))
+		.map(|(i, d)| (i, d.fixed_offset()))
 		.context("timezone issue")?))
 }

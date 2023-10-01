@@ -71,7 +71,7 @@ pub async fn next(
 	Extension(u): Extension<UserId>,
 ) -> WebResult<(u32, String), &'static str> {
 	match entry::next(u, db, q).await {
-		Ok(d) => d.transpose(),
+		Ok(d) => d.map(|(i, d)| (i, d.to_rfc3339())).transpose(),
 		Err(e) => {
 			error!(%e, "error while handling request");
 			Err(WebError::internal_server_error())

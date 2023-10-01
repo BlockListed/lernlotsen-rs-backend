@@ -311,7 +311,7 @@ pub async fn information(
 		.zip(next_missing.into_iter())
 		.map(|(ts, (next_res, missing_res))| {
 			let next = next_res.and_then(|v| match v {
-				Ok(v) => Ok(v),
+				Ok((i, d)) => Ok((i, d.to_rfc3339())),
 				Err(e) => match e {
 					handlers::entry::NextEntryError::TimeslotNotFound => {
 						Err(anyhow::anyhow!("Timeslot went missing during handler call"))
