@@ -7,6 +7,8 @@ use mongodb::Database;
 
 use tracing::{debug, trace, warn};
 
+use crate::api::handlers;
+use crate::api::handlers::entry::UnfilledEntry;
 use crate::auth::UserId;
 use crate::db::model::{EntryState, Student, TimeSlot};
 use crate::db::queries::entry::get_entries_with_index_in;
@@ -114,7 +116,7 @@ pub async fn missing_entries(
 	db: Database,
 	u: UserId,
 	timeslot: TimeSlot,
-) -> anyhow::Result<Vec<(u32, String)>> {
+) -> anyhow::Result<Vec<handlers::entry::UnfilledEntry>> {
 	let mut required_entries = get_entries(&timeslot)
 		.enumerate()
 		.collect::<HashMap<_, _>>();
@@ -146,10 +148,10 @@ pub async fn missing_entries(
 	#[allow(clippy::cast_possible_truncation)]
 	let mut missing_entries = required_entries
 		.into_iter()
-		.map(|(i, d)| (i as u32, d.to_rfc3339()))
+		.map(|(i, d)| UnfilledEntry { index: i.try_into().unwrap(), timestamp: d.fixed_offset() })
 		.collect::<Vec<_>>();
 
-	missing_entries.sort_unstable_by_key(|x| x.0);
+	missing_entries.sort_unstable_by_key(|x| x.index);
 
 	Ok(missing_entries)
 }

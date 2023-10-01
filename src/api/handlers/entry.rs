@@ -5,7 +5,7 @@ use mongodb::Database;
 use tracing::{debug, error};
 use uuid::Uuid;
 
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 use serde_json::{json, Value};
 
 use crate::api::logic::entry::{
@@ -79,11 +79,17 @@ impl Into<WebError<&'static str>> for MissingEntriesError {
 	}
 }
 
+#[derive(Serialize)]
+pub struct UnfilledEntry {
+	pub index: u32,
+	pub timestamp: DateTime<FixedOffset>,
+}
+
 pub async fn missing(
 	u: UserId,
 	db: Database,
 	q: TimeSlotQuery,
-) -> anyhow::Result<Result<Vec<(u32, String)>, MissingEntriesError>> {
+) -> anyhow::Result<Result<Vec<UnfilledEntry>, MissingEntriesError>> {
 	let timeslot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await? {
 		Some(v) => v,
 		None => {
@@ -186,13 +192,13 @@ pub async fn next(
 	u: UserId,
 	db: Database,
 	q: TimeSlotQuery,
-) -> anyhow::Result<Result<(u32, DateTime<FixedOffset>), NextEntryError>> {
+) -> anyhow::Result<Result<UnfilledEntry, NextEntryError>> {
 	let ts = match get_timeslot_by_id(db, u, q.id).await? {
 		Some(d) => d,
 		None => return Ok(Err(NextEntryError::TimeslotNotFound)),
 	};
 
 	Ok(Ok(next_entry_date_timeslot(&ts)
-		.map(|(i, d)| (i, d.fixed_offset()))
+		.map(|(index, d)| UnfilledEntry {index, timestamp: d.fixed_offset()})
 		.context("timezone issue")?))
 }

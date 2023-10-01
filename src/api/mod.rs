@@ -62,6 +62,9 @@ pub async fn run(db: Database, cfg: Config) {
 		.route("/timeslots/:id/entries/missing", get(entry::missing))
 		.route("/timeslots/information", get(timeslot::information_length))
 		.route("/v2/timeslots/information", get(timeslot::information_length_v2))
+		.route("/v3/timeslots/information", get(timeslot::information_length_v3))
+		.route("/v3/timeslots/:id/entries/next", get(entry::next_v3))
+		.route("/v3/timeslots/:id/entries/missing", get(entry::missing_v3))
 		.nest("/verify", auth::router())
 		.with_state(state)
 		.layer(axum::middleware::from_fn_with_state(

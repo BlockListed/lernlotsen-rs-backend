@@ -6,7 +6,7 @@ use serde_json::Value;
 
 use tracing::error;
 
-use super::handlers::entry;
+use super::handlers::entry::{self, UnfilledEntry};
 use super::logic::check_object_belong_to_userid_weberror;
 use super::util::prelude::*;
 use super::AppState;
@@ -57,6 +57,21 @@ pub async fn missing(
 	Extension(u): Extension<UserId>,
 ) -> WebResult<Vec<(u32, String)>, &'static str> {
 	match entry::missing(u, db, q).await {
+		Ok(d) => d.map(|v| v.into_iter().map(|e| (e.index, e.timestamp.to_rfc3339())).collect::<Vec<_>>()).transpose(),
+		Err(e) => {
+			error!(%e, "error while handling request");
+			Err(WebError::internal_server_error())
+		}
+	}
+}
+
+// V3 cause v3 routes are no-tuple
+pub async fn missing_v3(
+	State(AppState { db, .. }): State<AppState>,
+	Path(q): Path<entry::TimeSlotQuery>,
+	Extension(u): Extension<UserId>,
+) -> WebResult<Vec<UnfilledEntry>, &'static str> {
+	match entry::missing(u, db, q).await {
 		Ok(d) => d.transpose(),
 		Err(e) => {
 			error!(%e, "error while handling request");
@@ -71,7 +86,21 @@ pub async fn next(
 	Extension(u): Extension<UserId>,
 ) -> WebResult<(u32, String), &'static str> {
 	match entry::next(u, db, q).await {
-		Ok(d) => d.map(|(i, d)| (i, d.to_rfc3339())).transpose(),
+		Ok(d) => d.map(|e| (e.index, e.timestamp.to_rfc3339())).transpose(),
+		Err(e) => {
+			error!(%e, "error while handling request");
+			Err(WebError::internal_server_error())
+		}
+	}
+}
+
+pub async fn next_v3(
+	State(AppState { db, .. }): State<AppState>,
+	Path(q): Path<entry::TimeSlotQuery>,
+	Extension(u): Extension<UserId>,
+) -> WebResult<UnfilledEntry, &'static str> {
+	match entry::next(u, db, q).await {
+		Ok(d) => d.transpose(),
 		Err(e) => {
 			error!(%e, "error while handling request");
 			Err(WebError::internal_server_error())

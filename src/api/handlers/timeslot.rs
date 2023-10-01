@@ -4,7 +4,7 @@ use std::ops::Range;
 
 use anyhow::Context;
 use axum::http::StatusCode;
-use chrono::{Datelike, IsoWeek, NaiveDate, NaiveTime, Weekday};
+use chrono::{Datelike, IsoWeek, NaiveDate, NaiveTime, Weekday, DateTime};
 use chrono_tz::Tz;
 use futures_util::stream::FuturesOrdered;
 use futures_util::{FutureExt, StreamExt};
@@ -26,6 +26,8 @@ use crate::db::model::{BsonTimeSlot, Entry, HasUserId, Student, TimeSlot};
 use crate::db::queries::entry::get_entry_by_index_range;
 use crate::db::queries::timeslot::{get_timeslot_by_id, get_timeslots, insert_timeslot};
 use crate::util::create_isoweek;
+
+use super::entry::UnfilledEntry;
 
 #[derive(Deserialize, Debug)]
 pub struct TimeSlotQuery {
@@ -311,7 +313,7 @@ pub async fn information(
 		.zip(next_missing.into_iter())
 		.map(|(ts, (next_res, missing_res))| {
 			let next = next_res.and_then(|v| match v {
-				Ok((i, d)) => Ok((i, d.to_rfc3339())),
+				Ok(e) => Ok((e.index, e.timestamp.to_rfc3339())),
 				Err(e) => match e {
 					handlers::entry::NextEntryError::TimeslotNotFound => {
 						Err(anyhow::anyhow!("Timeslot went missing during handler call"))
@@ -320,7 +322,7 @@ pub async fn information(
 			})?;
 
 			let missing = missing_res.and_then(|v| match v {
-				Ok(v) => Ok(v),
+				Ok(v) => Ok(v.into_iter().map(|e| (e.index, e.timestamp.to_rfc3339())).collect()),
 				Err(e) => match e {
 					handlers::entry::MissingEntriesError::TimeslotNotFound => {
 						Err(anyhow::anyhow!("Timeslot went missing during handler call"))
@@ -356,6 +358,26 @@ pub async fn information_v2(
 	information(u, db).await.map(|v| {
 		v.into_iter()
 			.map(|(ts, next, missing)| InformationV2ResponseItem { ts, next, missing: missing.len().try_into().unwrap() })
+			.collect()
+	})
+}
+
+#[derive(Serialize)]
+pub struct InformationV3ResponseItem {
+	ts: TimeSlot,
+	next: UnfilledEntry,
+	missing: u32,
+}
+
+pub type InformationV3Response = Vec<InformationV3ResponseItem>;
+
+pub async fn information_v3(
+	u: UserId,
+	db: Database,
+) -> anyhow::Result<Vec<InformationV3ResponseItem>> {
+	information(u, db).await.map(|v| {
+		v.into_iter()
+			.map(|(ts, next, missing)| InformationV3ResponseItem { ts, next: UnfilledEntry { index: next.0, timestamp: DateTime::parse_from_rfc3339(&next.1).unwrap() }, missing: missing.len().try_into().unwrap() })
 			.collect()
 	})
 }
