@@ -10,7 +10,7 @@ use futures_util::stream::FuturesOrdered;
 use futures_util::{FutureExt, StreamExt};
 use itertools::Itertools;
 use mongodb::Database;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tracing::debug;
 use uuid::Uuid;
@@ -335,7 +335,27 @@ pub async fn information(
 	let mut res = res?;
 
 	// I know this is horrible.
-	res.sort_unstable_by_key(|v| chrono::DateTime::parse_from_rfc3339(&v.1.1).unwrap());
+	res.sort_unstable_by_key(|v| chrono::DateTime::parse_from_rfc3339(&v.1 .1).unwrap());
 
 	Ok(res)
+}
+
+#[derive(Serialize)]
+pub struct InformationV2ResponseItem {
+	ts: TimeSlot,
+	next: (u32, String),
+	missing: Vec<(u32, String)>,
+}
+
+pub type InformationV2Response = Vec<InformationV2ResponseItem>;
+
+pub async fn information_v2(
+	u: UserId,
+	db: Database,
+) -> anyhow::Result<Vec<InformationV2ResponseItem>> {
+	information(u, db).await.map(|v| {
+		v.into_iter()
+			.map(|(ts, next, missing)| InformationV2ResponseItem { ts, next, missing })
+			.collect()
+	})
 }
