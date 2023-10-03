@@ -4,7 +4,7 @@ use std::ops::Range;
 
 use anyhow::Context;
 use axum::http::StatusCode;
-use chrono::{Datelike, IsoWeek, NaiveDate, NaiveTime, Weekday, DateTime};
+use chrono::{Datelike, IsoWeek, NaiveDate, NaiveTime, Weekday};
 use chrono_tz::Tz;
 use futures_util::stream::FuturesOrdered;
 use futures_util::{FutureExt, StreamExt};
