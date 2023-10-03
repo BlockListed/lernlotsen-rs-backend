@@ -135,7 +135,7 @@ pub async fn missing_entries(
 
 	let found_indexes = get_entries_with_index_in(db.clone(), u, timeslot.id, required_indexes)
 		.await?
-		.drain(..)
+		.into_iter()
 		.map(|v| v.index)
 		.collect::<Vec<_>>();
 
