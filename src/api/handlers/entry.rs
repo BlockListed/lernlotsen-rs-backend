@@ -40,7 +40,7 @@ impl Into<WebError<&'static str>> for TimeslotQueryError {
 #[derive(Serialize)]
 pub struct QueryReturn {
 	pub entry: Entry,
-	pub timestamp: DateTime<chrono_tz::Tz>
+	pub timestamp: DateTime<FixedOffset>,
 }
 
 pub async fn query(
@@ -57,7 +57,7 @@ pub async fn query(
 		.drain(..)
 		.filter_map(|v| {
 			let entry: Entry = v;
-			let Some(timestamp) = get_time_from_index_and_timeslot(&timeslot, entry.index) else {
+			let Some(timestamp) = get_time_from_index_and_timeslot(&timeslot, entry.index).map(|v| v.fixed_offset()) else {
 				error!(timeslot=%entry.timeslot_id, index=%entry.index, "date of entry in database overflows the chrono limits");
 				return None;
 			};

@@ -2,7 +2,7 @@ use axum::extract::{Json, Path, State};
 use axum::http::StatusCode;
 use axum::Extension;
 
-use chrono::DateTime;
+use chrono::{DateTime, FixedOffset};
 use serde_json::Value;
 
 use tracing::error;
@@ -36,7 +36,7 @@ pub async fn query(
 	State(AppState { db, .. }): State<AppState>,
 	Path(q): Path<entry::TimeSlotQuery>,
 	Extension(u): Extension<UserId>,
-) -> WebResult<Vec<(Entry, DateTime<chrono_tz::Tz>)>, &'static str> {
+) -> WebResult<Vec<(Entry, DateTime<FixedOffset>)>, &'static str> {
 	let data = match entry::query(u.clone(), db, q).await {
 		Ok(d) => d.map(|v| v.into_iter().map(|v| (v.entry, v.timestamp)).collect::<Vec<_>>()),
 		Err(e) => {
