@@ -74,7 +74,7 @@ impl Into<WebError<&'static str>> for TimeslotCreateError {
 		match self {
 			TimerangeStartShouldBeWeekday => (
 				StatusCode::UNPROCESSABLE_ENTITY,
-				"weekday of timerange.start should be weekday",
+				"weekday of timerange.start should be equal to weekday",
 			)
 				.into(),
 			TimerangeStartShouldBeBeforeEnd => (
