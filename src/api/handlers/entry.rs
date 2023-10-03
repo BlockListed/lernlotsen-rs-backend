@@ -37,11 +37,17 @@ impl Into<WebError<&'static str>> for TimeslotQueryError {
 	}
 }
 
+#[derive(Serialize)]
+pub struct QueryReturn {
+	pub entry: Entry,
+	pub timestamp: DateTime<chrono_tz::Tz>
+}
+
 pub async fn query(
 	u: UserId,
 	db: Database,
 	q: TimeSlotQuery,
-) -> anyhow::Result<Result<Vec<(Entry, String)>, TimeslotQueryError>> {
+) -> anyhow::Result<Result<Vec<QueryReturn>, TimeslotQueryError>> {
 	let timeslot: TimeSlot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await? {
 		Some(x) => x,
 		None => return Ok(Err(TimeslotQueryError::TimeslotNotFound)),
@@ -51,16 +57,16 @@ pub async fn query(
 		.drain(..)
 		.filter_map(|v| {
 			let entry: Entry = v;
-			let Some(time) = get_time_from_index_and_timeslot(&timeslot, entry.index) else {
+			let Some(timestamp) = get_time_from_index_and_timeslot(&timeslot, entry.index) else {
 				error!(timeslot=%entry.timeslot_id, index=%entry.index, "date of entry in database overflows the chrono limits");
 				return None;
 			};
 
-			Some((entry, time.to_rfc3339()))
+			Some(QueryReturn { entry, timestamp })
 		})
 		.collect::<Vec<_>>();
 
-	res.sort_unstable_by(|a, b| b.0.index.cmp(&a.0.index));
+	res.sort_unstable_by(|a, b| b.entry.index.cmp(&a.entry.index));
 
 	Ok(Ok(res))
 }

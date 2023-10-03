@@ -2,6 +2,7 @@ use axum::extract::{Json, Path, State};
 use axum::http::StatusCode;
 use axum::Extension;
 
+use chrono::DateTime;
 use serde_json::Value;
 
 use tracing::error;
@@ -35,7 +36,27 @@ pub async fn query(
 	State(AppState { db, .. }): State<AppState>,
 	Path(q): Path<entry::TimeSlotQuery>,
 	Extension(u): Extension<UserId>,
-) -> WebResult<Vec<(Entry, String)>, &'static str> {
+) -> WebResult<Vec<(Entry, DateTime<chrono_tz::Tz>)>, &'static str> {
+	let data = match entry::query(u.clone(), db, q).await {
+		Ok(d) => d.map(|v| v.into_iter().map(|v| (v.entry, v.timestamp)).collect::<Vec<_>>()),
+		Err(e) => {
+			error!(%e, "error while handling request");
+			return Err(WebError::internal_server_error());
+		}
+	};
+
+	if let Ok(d) = data.as_ref() {
+		check_object_belong_to_userid_weberror(d.iter().map(|v| &v.0), &u)?;
+	}
+
+	data.transpose()
+}
+
+pub async fn query_v3(
+	State(AppState { db, .. }): State<AppState>,
+	Path(q): Path<entry::TimeSlotQuery>,
+	Extension(u): Extension<UserId>,
+) -> WebResult<Vec<entry::QueryReturn>, &'static str> {
 	let data = match entry::query(u.clone(), db, q).await {
 		Ok(d) => d,
 		Err(e) => {
@@ -45,7 +66,7 @@ pub async fn query(
 	};
 
 	if let Ok(d) = data.as_ref() {
-		check_object_belong_to_userid_weberror(d.iter().map(|v| &v.0), &u)?;
+		check_object_belong_to_userid_weberror(d.iter().map(|v| &v.entry), &u)?;
 	}
 
 	data.transpose()
