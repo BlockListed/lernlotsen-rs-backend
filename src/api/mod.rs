@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::time::Duration;
 
 use axum::body::Body;
 use axum::http::Request;
@@ -30,17 +29,11 @@ pub struct AppState {
 	pub cfg: Arc<Config>,
 }
 
-pub async fn run(db: Database, cfg: Config) {
+pub async fn run(db: Database, cfg: Config, auth: Authenticator) {
 	let hosturl = cfg.hosturl;
 
-	// TODO: Authenticator should probably be created in main.
 	let auth = Arc::new(
-		Authenticator::new(
-			cfg.auth.domain.as_str(),
-			Duration::from_secs(1800),
-			&cfg.auth.audience,
-		)
-		.await,
+		auth,
 	);
 
 	let cfg = Arc::new(cfg);

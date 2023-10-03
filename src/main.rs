@@ -9,6 +9,9 @@
 // I like using globbed enums
 #![allow(clippy::enum_glob_use)]
 
+use std::time::Duration;
+
+use auth::Authenticator;
 use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter};
 
@@ -51,5 +54,11 @@ async fn main() {
 
 	let db = get_db(&cfg).await;
 
-	api::run(db, cfg).await;
+	let auth = Authenticator::new(
+		cfg.auth.domain.as_str(),
+		Duration::from_secs(1800),
+		&cfg.auth.audience,
+	).await;
+
+	api::run(db, cfg, auth).await;
 }
