@@ -279,15 +279,6 @@ pub async fn export(
 }
 
 #[derive(Serialize)]
-pub struct InformationV2ResponseItem {
-    pub ts: TimeSlot,
-    pub next: (u32, String),
-	pub missing: u32,
-}
-
-pub type InformationV2Response = Vec<InformationV2ResponseItem>;
-
-#[derive(Serialize)]
 pub struct InformationV3ResponseItem {
 	ts: TimeSlot,
 	next: UnfilledEntry,
@@ -362,11 +353,4 @@ pub async fn information(
 	res.sort_unstable_by_key(|v| v.next.timestamp);
 
 	Ok(res)
-}
-
-pub async fn information_old(u: UserId, db: Database) -> anyhow::Result<Vec<(TimeSlot, (u32, String), u32)>> {
-	information(u, db).await
-		.map(|v| v.into_iter().map(|e| {
-			(e.ts, (e.next.index, e.next.timestamp.to_rfc3339()), e.missing)
-		}).collect())
 }
