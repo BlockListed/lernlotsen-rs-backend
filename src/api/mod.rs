@@ -56,11 +56,11 @@ pub async fn run(db: Database, cfg: Config) {
 		.route("/timeslots/export", get(timeslot::export))
 		.route(
 			"/timeslots/:id/entries",
-			get(entry::query).post(entry::create),
+			get(entry::query_v3).post(entry::create),
 		)
-		.route("/timeslots/:id/entries/next", get(entry::next))
-		.route("/timeslots/:id/entries/missing", get(entry::missing))
-		.route("/timeslots/information", get(timeslot::information_length))
+		.route("/timeslots/:id/entries/next", get(entry::next_v3))
+		.route("/timeslots/:id/entries/missing", get(entry::missing_v3))
+		.route("/timeslots/information", get(timeslot::information_length_v3))
 		.route("/v2/timeslots/information", get(timeslot::information_length_v2))
 		.route("/v3/timeslots/information", get(timeslot::information_length_v3))
 		.route("/v3/timeslots/:id/entries", get(entry::query_v3))
