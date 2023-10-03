@@ -287,10 +287,7 @@ pub struct InformationV3ResponseItem {
 
 pub type InformationV3Response = Vec<InformationV3ResponseItem>;
 
-pub async fn information(
-	u: UserId,
-	db: Database,
-) -> anyhow::Result<InformationV3Response> {
+pub async fn information(u: UserId, db: Database) -> anyhow::Result<InformationV3Response> {
 	let timeslots = query(u.clone(), db.clone(), TimeSlotQuery { id: None }).await?;
 
 	let next_missing = futures_util::future::join_all(timeslots.iter().map(|ts| {
@@ -339,11 +336,7 @@ pub async fn information(
 				},
 			})?;
 
-			anyhow::Result::<_>::Ok(InformationV3ResponseItem {
-				ts,
-				next,
-				missing,
-			})
+			anyhow::Result::<_>::Ok(InformationV3ResponseItem { ts, next, missing })
 		})
 		.try_collect();
 

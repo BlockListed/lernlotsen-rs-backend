@@ -58,7 +58,8 @@ async fn main() {
 		cfg.auth.domain.as_str(),
 		Duration::from_secs(1800),
 		&cfg.auth.audience,
-	).await;
+	)
+	.await;
 
 	api::run(db, cfg, auth).await;
 }

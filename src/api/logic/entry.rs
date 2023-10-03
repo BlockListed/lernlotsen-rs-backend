@@ -148,7 +148,10 @@ pub async fn missing_entries(
 	#[allow(clippy::cast_possible_truncation)]
 	let mut missing_entries = required_entries
 		.into_iter()
-		.map(|(i, d)| UnfilledEntry { index: i.try_into().unwrap(), timestamp: d.fixed_offset() })
+		.map(|(i, d)| UnfilledEntry {
+			index: i.try_into().unwrap(),
+			timestamp: d.fixed_offset(),
+		})
 		.collect::<Vec<_>>();
 
 	missing_entries.sort_unstable_by_key(|x| x.index);

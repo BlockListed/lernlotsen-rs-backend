@@ -32,9 +32,7 @@ pub struct AppState {
 pub async fn run(db: Database, cfg: Config, auth: Authenticator) {
 	let hosturl = cfg.hosturl;
 
-	let auth = Arc::new(
-		auth,
-	);
+	let auth = Arc::new(auth);
 
 	let cfg = Arc::new(cfg);
 

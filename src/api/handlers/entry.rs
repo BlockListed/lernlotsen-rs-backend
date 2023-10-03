@@ -5,7 +5,7 @@ use mongodb::Database;
 use tracing::{debug, error};
 use uuid::Uuid;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use crate::api::logic::entry::{
@@ -205,6 +205,9 @@ pub async fn next(
 	};
 
 	Ok(Ok(next_entry_date_timeslot(&ts)
-		.map(|(index, d)| UnfilledEntry {index, timestamp: d.fixed_offset()})
+		.map(|(index, d)| UnfilledEntry {
+			index,
+			timestamp: d.fixed_offset(),
+		})
 		.context("timezone issue")?))
 }
