@@ -4,6 +4,7 @@ use axum::http::StatusCode;
 use futures_util::FutureExt;
 use mongodb::Database;
 use tokio::time::timeout;
+use tracing::error;
 
 use crate::api::util::WebError;
 
@@ -21,22 +22,27 @@ impl Into<WebError<&'static str>> for HealthCheckError {
 }
 
 pub async fn health_check(db: Database) -> Result<&'static str, HealthCheckError> {
-	if !database_test(db).await {
+	if database_test(db).await.is_err() {
 		return Err(HealthCheckError::DatabaseUnavailable);
 	}
 
 	Ok("healthy")
 }
 
-pub async fn database_test(db: Database) -> bool {
+pub async fn database_test(db: Database) -> Result<(), ()> {
 	let res = timeout(
 		Duration::from_millis(500),
-		tokio::spawn(async move { db.list_collections(None, None).map(|v| v.unwrap()).await }),
+		tokio::spawn(async move { db.list_collections(None, None).await }).map(|v| v.unwrap()),
 	)
 	.await;
 	if let Ok(res) = res {
-		res.is_ok()
+		if let Err(e) = res {
+			error!(err=%e, "health check error");
+			return Err(());
+		}
+		Ok(())
 	} else {
-		false
+		error!("database connection timeout");
+		Err(())
 	}
 }
