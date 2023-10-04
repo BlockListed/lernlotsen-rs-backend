@@ -17,6 +17,7 @@ use crate::configuration::Config;
 mod auth;
 mod entry;
 mod handlers;
+mod health;
 mod logic;
 mod timeslot;
 #[macro_use]
@@ -53,11 +54,11 @@ pub async fn run(db: Database, cfg: Config, auth: Authenticator) {
 		.route("/timeslots/:id/entries/missing", get(entry::missing))
 		.route("/timeslots/information", get(timeslot::information))
 		.nest("/verify", auth::router())
-		.with_state(state)
 		.layer(axum::middleware::from_fn_with_state(
 			auth,
 			auth::auth_middleware,
 		))
+		.route("/health_check", get(health::health_check))
 		.layer(
 			TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
 				let request_id = request
@@ -68,7 +69,8 @@ pub async fn run(db: Database, cfg: Config, auth: Authenticator) {
 				info_span!("request", id = %request_id, method = %request.method(), uri = %request.uri())
 			}),
 		)
-		.layer(RequestIdLayer);
+		.layer(RequestIdLayer)
+		.with_state(state);
 
 	info!(uri=%hosturl, "Starting server");
 
