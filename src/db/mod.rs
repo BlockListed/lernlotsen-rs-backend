@@ -18,7 +18,8 @@ pub async fn get_db(cfg: &Config) -> Database {
 
 	opts.app_name = Some("Lernlotsen".to_string());
 
-	opts.connect_timeout = Some(Duration::from_secs(2));
+	opts.connect_timeout = Some(Duration::from_secs(5));
+	opts.server_selection_timeout = Some(Duration::from_secs(5));
 	opts.max_idle_time = Some(Duration::from_secs(300));
 
 	let client = Client::with_options(opts).unwrap();
