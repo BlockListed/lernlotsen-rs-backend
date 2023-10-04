@@ -52,7 +52,7 @@ pub async fn create(
 	Json(r): Json<TimeslotCreate>,
 ) -> WebResult<TimeslotCreateReturn, &'static str> {
 	match timeslot::create(u, db, r).await {
-		Ok(d) => d.map(|id| (StatusCode::CREATED, id.into())).transpose(),
+		Ok(d) => d.map(|id| (StatusCode::CREATED, id.into())).transpose_web(),
 		Err(e) => {
 			error!(%e, "error while handling request");
 			Err(WebError::internal_server_error())
@@ -66,7 +66,7 @@ pub async fn export(
 	Query(q): Query<ExportRequest>,
 ) -> WebResult<String, Value> {
 	match timeslot::export(u, db, q).await {
-		Ok(v) => v.transpose(),
+		Ok(v) => v.transpose_web(),
 		Err(e) => {
 			error!(%e, "error while handling request");
 			Err(WebError::internal_server_error())

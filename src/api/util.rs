@@ -8,11 +8,11 @@ pub type WebResult<T, E> = Result<WebSuccess<T>, WebError<E>>;
 
 // Probably not the correct term.
 pub trait TransposeResult<T, E> {
-	fn transpose(self) -> Result<T, E>;
+	fn transpose_web(self) -> Result<T, E>;
 }
 
 impl<T: Into<A>, E: Into<B>, A, B> TransposeResult<A, B> for Result<T, E> {
-	fn transpose(self) -> Result<A, B> {
+	fn transpose_web(self) -> Result<A, B> {
 		match self {
 			Ok(ok) => Ok(ok.into()),
 			Err(err) => Err(err.into()),

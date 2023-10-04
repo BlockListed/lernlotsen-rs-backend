@@ -22,7 +22,7 @@ pub async fn create(
 	match entry::create(u, db, r, q).await {
 		Ok(d) => d
 			.map(|_| (StatusCode::CREATED, "created entry"))
-			.transpose(),
+			.transpose_web(),
 		Err(e) => {
 			error!(%e, "error while handling request");
 			Err(WebError::internal_server_error())
@@ -47,7 +47,7 @@ pub async fn query(
 		check_object_belong_to_userid_weberror(d.iter().map(|v| &v.entry), &u)?;
 	}
 
-	data.transpose()
+	data.transpose_web()
 }
 
 pub async fn missing(
@@ -56,7 +56,7 @@ pub async fn missing(
 	Extension(u): Extension<UserId>,
 ) -> WebResult<Vec<UnfilledEntry>, &'static str> {
 	match entry::missing(u, db, q).await {
-		Ok(d) => d.transpose(),
+		Ok(d) => d.transpose_web(),
 		Err(e) => {
 			error!(%e, "error while handling request");
 			Err(WebError::internal_server_error())
@@ -70,7 +70,7 @@ pub async fn next(
 	Extension(u): Extension<UserId>,
 ) -> WebResult<UnfilledEntry, &'static str> {
 	match entry::next(u, db, q).await {
-		Ok(d) => d.transpose(),
+		Ok(d) => d.transpose_web(),
 		Err(e) => {
 			error!(%e, "error while handling request");
 			Err(WebError::internal_server_error())
