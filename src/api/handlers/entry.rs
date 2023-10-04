@@ -55,8 +55,7 @@ pub async fn query(
 
 	let mut res: Vec<_> = get_entries_by_timeslot_id(db, u, timeslot.id).await?
 		.into_iter()
-		.filter_map(|v| {
-			let entry: Entry = v;
+		.filter_map(|entry| {
 			let Some(timestamp) = get_time_from_index_and_timeslot(&timeslot, entry.index).map(|v| v.fixed_offset()) else {
 				error!(timeslot=%entry.timeslot_id, index=%entry.index, "date of entry in database overflows the chrono limits");
 				return None;
