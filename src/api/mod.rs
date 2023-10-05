@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::body::Body;
 use axum::http::Request;
-use axum::routing::get;
+use axum::routing::{get, delete};
 use axum::Router;
 
 use mongodb::Database;
@@ -46,6 +46,7 @@ pub async fn run(db: Database, cfg: Config, auth: Authenticator) {
 	let app = Router::new()
 		.route("/timeslots", get(timeslot::query).post(timeslot::create))
 		.route("/timeslots/export", get(timeslot::export))
+		.route("/timeslots/:id", delete(timeslot::delete))
 		.route(
 			"/timeslots/:id/entries",
 			get(entry::query).post(entry::create),

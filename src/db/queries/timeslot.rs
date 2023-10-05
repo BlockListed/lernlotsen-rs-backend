@@ -9,7 +9,7 @@ use crate::{
 	auth::UserId,
 	db::{
 		collection_timeslots,
-		model::{BsonTimeSlot, TimeSlot},
+		model::{BsonTimeSlot, TimeSlot}, collection_entries,
 	},
 };
 
@@ -69,6 +69,35 @@ pub async fn insert_timeslot(db: Database, ts: BsonTimeSlot) -> anyhow::Result<(
 		let timeslots = collection_timeslots(&db).await;
 
 		timeslots.insert_one(ts, None).await?;
+
+		Ok(())
+	})
+	.await
+	.unwrap()
+}
+
+pub async fn delete_timeslot_by_id(db: Database, u: UserId, id: Uuid) -> anyhow::Result<()> {
+	let timeslot_query = bson::doc! {
+		"user_id": u.as_str(),
+		"id": id,
+	};
+
+	let entry_query = bson::doc! {
+		"user_id": u.as_str(),
+		"timeslot_id": id,
+	};
+
+	tokio::spawn(async move {
+		let timeslots = collection_timeslots(&db).await;
+		let entries = collection_entries(&db).await;
+
+		let (timeslot_res, entry_res) = tokio::join!(
+			timeslots.delete_one(timeslot_query, None),
+			entries.delete_many(entry_query, None),
+		);
+
+		timeslot_res?;
+		entry_res?;
 
 		Ok(())
 	})

@@ -60,6 +60,20 @@ pub async fn create(
 	}
 }
 
+pub async fn delete(
+	State(AppState { db, .. }): State<AppState>,
+	Extension(u): Extension<UserId>,
+	Json(r): Json<timeslot::DeleteRequest>
+) -> WebResult<&'static str, &'static str> {
+	match timeslot::delete(u, db, r).await {
+		Ok(_) => Ok((StatusCode::OK, "deleted").into()),
+		Err(e) => {
+			error!(%e, "error while handling request");
+			Err(WebError::internal_server_error())
+		}
+	}
+}
+
 pub async fn export(
 	State(AppState { db, .. }): State<AppState>,
 	Extension(u): Extension<UserId>,

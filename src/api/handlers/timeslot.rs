@@ -24,7 +24,7 @@ use crate::api::util::prelude::*;
 use crate::auth::UserId;
 use crate::db::model::{BsonTimeSlot, Entry, HasUserId, Student, TimeSlot};
 use crate::db::queries::entry::get_entry_by_index_range;
-use crate::db::queries::timeslot::{get_timeslot_by_id, get_timeslots, insert_timeslot};
+use crate::db::queries::timeslot::{get_timeslot_by_id, get_timeslots, insert_timeslot, delete_timeslot_by_id};
 use crate::util::create_isoweek;
 
 use super::entry::UnfilledEntry;
@@ -123,6 +123,15 @@ pub async fn create(
 	insert_timeslot(db, ts).await?;
 
 	Ok(Ok(id))
+}
+
+#[derive(Deserialize)]
+pub struct DeleteRequest {
+	id: Uuid,
+}
+
+pub async fn delete(u: UserId, db: Database, r: DeleteRequest) -> anyhow::Result<()> {
+	delete_timeslot_by_id(db, u, r.id).await
 }
 
 #[derive(Deserialize)]
