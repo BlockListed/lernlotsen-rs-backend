@@ -1,6 +1,6 @@
 use bson::doc;
 use futures_util::StreamExt;
-use mongodb::Database;
+use mongodb::{Database, Client};
 use tokio::spawn;
 use tracing::error;
 use uuid::Uuid;
@@ -9,7 +9,7 @@ use crate::{
 	auth::UserId,
 	db::{
 		collection_timeslots,
-		model::{BsonTimeSlot, TimeSlot}, collection_entries,
+		model::{BsonTimeSlot, TimeSlot}, collection_entries, self,
 	},
 };
 
@@ -76,7 +76,7 @@ pub async fn insert_timeslot(db: Database, ts: BsonTimeSlot) -> anyhow::Result<(
 	.unwrap()
 }
 
-pub async fn delete_timeslot_by_id(db: Database, u: UserId, id: Uuid) -> anyhow::Result<()> {
+pub async fn delete_timeslot_by_id(c: Client, u: UserId, id: Uuid) -> anyhow::Result<()> {
 	let timeslot_query = bson::doc! {
 		"user_id": u.as_str(),
 		"id": id,
@@ -88,16 +88,18 @@ pub async fn delete_timeslot_by_id(db: Database, u: UserId, id: Uuid) -> anyhow:
 	};
 
 	tokio::spawn(async move {
+		let mut session = c.start_session(None).await?;
+
+		let db = db::get_db(&c);
+		
 		let timeslots = collection_timeslots(&db).await;
 		let entries = collection_entries(&db).await;
 
-		let (timeslot_res, entry_res) = tokio::join!(
-			timeslots.delete_one(timeslot_query, None),
-			entries.delete_many(entry_query, None),
-		);
+		entries.delete_many_with_session(entry_query, None, &mut session).await?;
 
-		timeslot_res?;
-		entry_res?;
+		timeslots.delete_one_with_session(timeslot_query, None, &mut session).await?;
+
+		session.commit_transaction().await?;
 
 		Ok(())
 	})

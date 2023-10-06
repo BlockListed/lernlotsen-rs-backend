@@ -61,11 +61,11 @@ pub async fn create(
 }
 
 pub async fn delete(
-	State(AppState { db, .. }): State<AppState>,
+	State(AppState { c, .. }): State<AppState>,
 	Extension(u): Extension<UserId>,
 	Json(r): Json<timeslot::DeleteRequest>
 ) -> WebResult<&'static str, &'static str> {
-	match timeslot::delete(u, db, r).await {
+	match timeslot::delete(u, c, r).await {
 		Ok(_) => Ok((StatusCode::OK, "deleted").into()),
 		Err(e) => {
 			error!(%e, "error while handling request");
