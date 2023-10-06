@@ -5,7 +5,7 @@ use axum::http::Request;
 use axum::routing::{get, delete};
 use axum::Router;
 
-use mongodb::Database;
+use mongodb::{Database, Client};
 
 use tower_http::trace::TraceLayer;
 use tower_request_id::{RequestId, RequestIdLayer};
@@ -13,6 +13,7 @@ use tracing::{info, info_span};
 
 use crate::auth::Authenticator;
 use crate::configuration::Config;
+use crate::db::get_db;
 
 mod auth;
 mod entry;
@@ -26,19 +27,23 @@ mod util;
 #[derive(Clone)]
 pub struct AppState {
 	pub db: Database,
+	pub c: Client,
 	pub auth: Arc<Authenticator>,
 	pub cfg: Arc<Config>,
 }
 
-pub async fn run(db: Database, cfg: Config, auth: Authenticator) {
+pub async fn run(c: Client, cfg: Config, auth: Authenticator) {
 	let hosturl = cfg.hosturl;
 
 	let auth = Arc::new(auth);
 
 	let cfg = Arc::new(cfg);
 
+	let db = get_db(&c);
+
 	let state = AppState {
 		db,
+		c,
 		auth: auth.clone(),
 		cfg: cfg.clone(),
 	};

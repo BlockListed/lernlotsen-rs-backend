@@ -13,7 +13,7 @@ use model::{BsonEntry, BsonTimeSlot};
 
 use self::model::ConfigurationEntry;
 
-pub async fn get_db(cfg: &Config) -> Database {
+pub async fn get_client(cfg: &Config) -> Client {
 	let mut opts = ClientOptions::parse(&cfg.database.uri).await.unwrap();
 
 	opts.app_name = Some("Lernlotsen".to_string());
@@ -29,7 +29,11 @@ pub async fn get_db(cfg: &Config) -> Database {
 
 	migrate::migrate(&database).await;
 
-	database
+	client
+}
+
+pub fn get_db(c: &Client) -> Database {
+	c.default_database().expect("missing default database in uri")
 }
 
 // I'm too lazy to change this shit.
