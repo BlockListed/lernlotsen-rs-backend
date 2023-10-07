@@ -1,5 +1,4 @@
 use axum::http::StatusCode;
-use futures_util::FutureExt;
 use sqlx::PgPool;
 use tracing::error;
 
@@ -28,9 +27,7 @@ pub async fn health_check(db: PgPool) -> Result<&'static str, HealthCheckError> 
 }
 
 pub async fn database_test(db: PgPool) -> Result<(), ()> {
-	if let Err(e) = tokio::spawn(async move { db.list_collections(None, None).await })
-		.map(Result::unwrap)
-		.await
+	if let Err(e) = sqlx::query!("SELECT (1) as test").fetch_optional(&db).await
 	{
 		error!(err=%e, "health check error");
 		return Err(());
