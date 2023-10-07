@@ -16,10 +16,28 @@ pub struct Student {
 }
 
 #[derive(Serialize, Deserialize, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[repr(u8)]
 pub enum StudentStatus {
 	Present,
 	Pardoned,
 	Missing,
+}
+
+pub enum IntoEnumError {
+	InvalidValue,
+}
+
+impl TryFrom<u8> for StudentStatus {
+	type Error = IntoEnumError;
+
+	fn try_from(value: u8) -> Result<Self, Self::Error> {
+		match value {
+			0 => Ok(StudentStatus::Present),
+			1 => Ok(StudentStatus::Pardoned),
+			2 => Ok(StudentStatus::Missing),
+			_ => Err(IntoEnumError::InvalidValue)
+		}
+	}
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -46,6 +64,45 @@ pub enum EntryState {
 	CancelledByTutor,
 	Holidays,
 	Other,
+}
+
+pub enum IntoEntryStateError {
+	InvalidValue,
+	MissingStudentsField,
+}
+
+impl TryFrom<(u8, Option<Vec<(Student, StudentStatus)>>)> for EntryState {
+	type Error = IntoEntryStateError;
+
+	fn try_from(value: (u8, Option<Vec<(Student, StudentStatus)>>)) -> Result<Self, Self::Error> {
+		match value.0 {
+			0 => {
+				match value.1 {
+					Some(students) => Ok(Self::Success { students }),
+					None => Err(IntoEntryStateError::MissingStudentsField),
+				}
+			},
+			1 => Ok(Self::CancelledByStudents),
+			2 => Ok(Self::StudentsMissing),
+			3 => Ok(Self::CancelledByTutor),
+			4 => Ok(Self::Holidays),
+			5 => Ok(Self::Other),
+			_ => Err(IntoEntryStateError::InvalidValue),
+		}
+	}
+}
+
+impl Into<(u8, Option<Vec<(Student, StudentStatus)>>)> for EntryState {
+	fn into(self) -> (u8, Option<Vec<(Student, StudentStatus)>>) {
+		match self {
+			Self::Success { students } => (0, Some(students)),
+			Self::CancelledByStudents => (1, None),
+			Self::StudentsMissing => (2, None),
+			Self::CancelledByTutor => (3, None),
+			Self::Holidays => (4, None),
+			Self::Other => (5, None),
+		}
+	}
 }
 
 #[derive(Serialize, Deserialize, Debug)]
