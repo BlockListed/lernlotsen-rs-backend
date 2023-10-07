@@ -15,7 +15,7 @@ use auth::Authenticator;
 use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
 use tracing_subscriber::{layer::SubscriberExt, EnvFilter};
 
-use db::get_client;
+use db::get_pool;
 
 mod api;
 mod auth;
@@ -52,7 +52,7 @@ async fn main() {
 
 	let cfg: configuration::Config = cfg_builder.try_deserialize().unwrap();
 
-	let c = get_client(&cfg).await;
+	let db = get_pool(&cfg).await;
 
 	let auth = Authenticator::new(
 		cfg.auth.domain.as_str(),
@@ -61,5 +61,5 @@ async fn main() {
 	)
 	.await;
 
-	api::run(c, cfg, auth).await;
+	api::run(db, cfg, auth).await;
 }

@@ -9,9 +9,9 @@ use chrono_tz::Tz;
 use futures_util::stream::FuturesOrdered;
 use futures_util::{FutureExt, StreamExt};
 use itertools::Itertools;
-use mongodb::{Client, Database};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use sqlx::PgPool;
 use tracing::debug;
 use uuid::Uuid;
 
@@ -22,7 +22,7 @@ use crate::api::logic::export::format_entry;
 use crate::api::logic::timeslot::get_index_range_timeslot;
 use crate::api::util::prelude::*;
 use crate::auth::UserId;
-use crate::db::model::{BsonTimeSlot, Entry, HasUserId, Student, TimeSlot};
+use crate::db::model::{Entry, HasUserId, Student, TimeSlot};
 use crate::db::queries::entry::get_entry_by_index_range;
 use crate::db::queries::timeslot::{
 	delete_timeslot_by_id, get_timeslot_by_id, get_timeslots, insert_timeslot,
@@ -36,7 +36,7 @@ pub struct TimeSlotQuery {
 	id: Option<Uuid>,
 }
 
-pub async fn query(u: UserId, db: Database, q: TimeSlotQuery) -> anyhow::Result<Vec<TimeSlot>> {
+pub async fn query(u: UserId, db: PgPool, q: TimeSlotQuery) -> anyhow::Result<Vec<TimeSlot>> {
 	let res = match q.id {
 		Some(id) => {
 			let mut output = Vec::new();
@@ -95,7 +95,7 @@ impl Into<WebError<&'static str>> for TimeslotCreateError {
 
 pub async fn create(
 	u: UserId,
-	db: Database,
+	db: PgPool,
 	r: TimeslotCreate,
 ) -> anyhow::Result<Result<Uuid, TimeslotCreateError>> {
 	if r.timerange.start.weekday() != r.weekday {
@@ -111,7 +111,7 @@ pub async fn create(
 	}
 
 	let id = Uuid::new_v4();
-	let ts = BsonTimeSlot {
+	let ts = TimeSlot {
 		user_id: u.as_str().to_owned(),
 		id: id.into(),
 		subject: r.subject,
@@ -132,7 +132,7 @@ pub struct DeleteRequest {
 	id: Uuid,
 }
 
-pub async fn delete(u: UserId, c: Client, r: DeleteRequest) -> anyhow::Result<()> {
+pub async fn delete(u: UserId, c: PgPool, r: DeleteRequest) -> anyhow::Result<()> {
 	delete_timeslot_by_id(c, u, r.id).await
 }
 
@@ -178,7 +178,7 @@ impl Into<WebError<Value>> for ExportError {
 
 pub async fn export(
 	u: UserId,
-	db: Database,
+	db: PgPool,
 	q: ExportRequest,
 ) -> anyhow::Result<Result<String, ExportError>> {
 	let Some(start) = create_isoweek(q.start_year, q.start_week) else {
@@ -298,7 +298,7 @@ pub struct InformationV3ResponseItem {
 
 pub type InformationV3Response = Vec<InformationV3ResponseItem>;
 
-pub async fn information(u: UserId, db: Database) -> anyhow::Result<InformationV3Response> {
+pub async fn information(u: UserId, db: PgPool) -> anyhow::Result<InformationV3Response> {
 	let timeslots = query(u.clone(), db.clone(), TimeSlotQuery { id: None }).await?;
 
 	let next_missing = futures_util::future::join_all(timeslots.iter().map(|ts| {

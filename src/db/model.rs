@@ -1,14 +1,17 @@
-use std::fmt::Display;
 use std::ops::Range;
+use std::str::FromStr;
 
-use bson::Uuid as BsonUuid;
-
+use chrono::Datelike;
 use chrono::NaiveDate;
 use chrono::NaiveTime;
 use chrono::Weekday;
 use chrono_tz::Tz;
 
 use serde::{Deserialize, Serialize};
+use sqlx::types::JsonValue;
+use tracing::error;
+
+use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Debug)]
 pub struct Student {
@@ -16,7 +19,6 @@ pub struct Student {
 }
 
 #[derive(Serialize, Deserialize, Debug, Hash, PartialEq, Eq, Clone, Copy)]
-#[repr(u8)]
 pub enum StudentStatus {
 	Present,
 	Pardoned,
@@ -40,17 +42,29 @@ impl TryFrom<u8> for StudentStatus {
 	}
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct BaseTimeSlot<UUID, Date> {
+#[derive(Debug, sqlx::Type)]
+#[sqlx(type_name = "timeslot_time")]
+pub struct DbTime {
+	pub beginning: NaiveTime,
+	pub finish: NaiveTime,
+}
+
+#[derive(Debug, sqlx::Type)]
+#[sqlx(type_name = "timeslot_timerange")]
+pub struct DbTimerange {
+	pub beginning: NaiveDate,
+	pub finish: NaiveDate,
+}
+
+#[derive(Debug)]
+pub struct TimeSlot {
 	pub user_id: String,
-	pub id: UUID,
+	pub id: Uuid,
 	pub subject: String,
-	pub students: Vec<Student>,
-	pub time: Range<NaiveTime>,
-	pub timerange: Range<Date>,
-	/// FRONTEND ONLY DO NOT RELY ON.
-	pub weekday: Weekday,
-	pub timezone: Tz,
+	pub students: Vec<String>,
+	pub time: DbTime,
+	pub timerange: DbTimerange,
+	pub timezone: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -66,83 +80,71 @@ pub enum EntryState {
 	Other,
 }
 
+impl From<JsonValue> for EntryState {
+	fn from(value: JsonValue) -> Self {
+		let Ok(entry_state) = EntryState::deserialize(value);
+
+		entry_state
+	}
+}
+
 pub enum IntoEntryStateError {
 	InvalidValue,
 	MissingStudentsField,
 }
 
-impl TryFrom<(u8, Option<Vec<(Student, StudentStatus)>>)> for EntryState {
-	type Error = IntoEntryStateError;
-
-	fn try_from(value: (u8, Option<Vec<(Student, StudentStatus)>>)) -> Result<Self, Self::Error> {
-		match value.0 {
-			0 => {
-				match value.1 {
-					Some(students) => Ok(Self::Success { students }),
-					None => Err(IntoEntryStateError::MissingStudentsField),
-				}
-			},
-			1 => Ok(Self::CancelledByStudents),
-			2 => Ok(Self::StudentsMissing),
-			3 => Ok(Self::CancelledByTutor),
-			4 => Ok(Self::Holidays),
-			5 => Ok(Self::Other),
-			_ => Err(IntoEntryStateError::InvalidValue),
-		}
-	}
+#[derive(Debug)]
+pub struct Entry {
+	pub user_id: String,
+	pub index: i32,
+	pub timeslot_id: Uuid,
+	pub state: sqlx::types::Json<EntryState>,
 }
 
-impl Into<(u8, Option<Vec<(Student, StudentStatus)>>)> for EntryState {
-	fn into(self) -> (u8, Option<Vec<(Student, StudentStatus)>>) {
-		match self {
-			Self::Success { students } => (0, Some(students)),
-			Self::CancelledByStudents => (1, None),
-			Self::StudentsMissing => (2, None),
-			Self::CancelledByTutor => (3, None),
-			Self::Holidays => (4, None),
-			Self::Other => (5, None),
-		}
-	}
+#[derive(Serialize, Deserialize)]
+pub struct WebTimeSlot {
+	pub id: Uuid,
+	pub subject: String,
+	pub students: Vec<Student>,
+	pub time: Range<NaiveTime>,
+	pub timerange: Range<NaiveDate>,
+	pub weekday: Weekday,
+	pub timezone: Tz,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct BaseEntry<UUID> {
+pub fn convert_ts(ts: TimeSlot) -> Option<WebTimeSlot> {
+	let timezone: chrono_tz::Tz = match chrono_tz::Tz::from_str(&ts.timezone) {
+		Ok(tz) => tz,
+		Err(e) => {
+			error!(%e, "invalid timezone data in db");
+			return None;
+		}
+	};
+
+	let time = ts.time.beginning..ts.time.finish;
+	let timerange = ts.timerange.beginning..ts.timerange.finish;
+
+	Some(WebTimeSlot { id: ts.id, subject: ts.subject, students: ts.students.into_iter().map(|s| Student { name: s }).collect(), time, timerange, weekday: timerange.start.weekday(), timezone })
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct WebEntry {
 	pub user_id: String,
 	pub index: u32,
-	pub timeslot_id: UUID,
+	pub timeslot_id: Uuid,
 	pub state: EntryState,
 }
 
-pub type TimeSlot = BaseTimeSlot<uuid::Uuid, NaiveDate>;
-pub type Entry = BaseEntry<uuid::Uuid>;
-
-pub type BsonTimeSlot = BaseTimeSlot<BsonUuid, NaiveDate>;
-pub type BsonEntry = BaseEntry<BsonUuid>;
-
-impl From<BsonTimeSlot> for TimeSlot {
-	fn from(v: BsonTimeSlot) -> Self {
-		Self {
-			user_id: v.user_id,
-			id: v.id.into(),
-			students: v.students,
-			subject: v.subject,
-			time: v.time,
-			timerange: v.timerange,
-			weekday: v.weekday,
-			timezone: v.timezone,
+pub fn convert_entry(e: Entry) -> Option<WebEntry> {
+	let index: u32 = match e.index.try_into() {
+		Ok(i) => i,
+		Err(e) => {
+			error!(%e, "invalid index data in db");
+			return None;
 		}
-	}
-}
+	};
 
-impl From<BsonEntry> for Entry {
-	fn from(v: BsonEntry) -> Self {
-		Self {
-			user_id: v.user_id,
-			index: v.index,
-			timeslot_id: v.timeslot_id.into(),
-			state: v.state,
-		}
-	}
+	Some(WebEntry { user_id: e.user_id, index, timeslot_id: e.timeslot_id, state: e.state.0 })
 }
 
 pub trait HasUserId {
@@ -150,7 +152,7 @@ pub trait HasUserId {
 	fn identifier(&self) -> String;
 }
 
-impl<U: Display, D> HasUserId for BaseTimeSlot<U, D> {
+impl HasUserId for TimeSlot {
 	fn user_id(&self) -> &str {
 		&self.user_id
 	}
@@ -160,7 +162,7 @@ impl<U: Display, D> HasUserId for BaseTimeSlot<U, D> {
 	}
 }
 
-impl<U: Display> HasUserId for BaseEntry<U> {
+impl HasUserId for Entry {
 	fn user_id(&self) -> &str {
 		&self.user_id
 	}

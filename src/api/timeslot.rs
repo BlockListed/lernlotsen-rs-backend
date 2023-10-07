@@ -61,7 +61,7 @@ pub async fn create(
 }
 
 pub async fn delete(
-	State(AppState { c, .. }): State<AppState>,
+	State(AppState { db, .. }): State<AppState>,
 	Extension(u): Extension<UserId>,
 	Json(r): Json<timeslot::DeleteRequest>,
 ) -> WebResult<&'static str, &'static str> {

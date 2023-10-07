@@ -1,83 +1,44 @@
 use std::ops::Range;
 
-use bson::doc;
-use futures_util::StreamExt;
-use mongodb::Database;
-use tokio::spawn;
-use tracing::{debug, error};
+use sqlx::PgPool;
+use sqlx::types::Json;
+use tracing::error;
 use uuid::Uuid;
 
-use crate::db::model::{BsonEntry, Entry};
-use crate::{auth::UserId, db::collection_entries};
+use crate::db::model::{Entry, EntryState, WebEntry, self};
+use crate::auth::UserId;
 
 pub async fn get_entries_by_timeslot_id(
-	db: Database,
+	db: PgPool,
 	u: UserId,
 	id: uuid::Uuid,
-) -> anyhow::Result<Vec<Entry>> {
-	let query = doc! {
-		"timeslot_id": id,
-		"user_id": u.as_str(),
-	};
+) -> anyhow::Result<Vec<WebEntry>> {
+	let entries_db = sqlx::query_as!(Entry, r#"SELECT user_id, index, timeslot_id, state AS "state: Json<EntryState>" FROM entries WHERE timeslot_id = $1 AND user_id = $2"#, id, u.as_str())
+		.fetch_all(&db)
+		.await?;
 
-	spawn(async move {
-		let entries = collection_entries(&db).await;
+	let entries: Vec<WebEntry> = entries_db.into_iter()
+		.filter_map(model::convert_entry)
+		.collect();
 
-		Ok(entries
-			.find(query, None)
-			.await?
-			.filter_map(|v| async {
-				match v {
-					Ok(x) => Some(x),
-					Err(e) => {
-						error!(%e, "invalid data in database");
-						None
-					}
-				}
-			})
-			.map(std::convert::Into::into)
-			.collect()
-			.await)
-	})
-	.await
-	.unwrap()
+	Ok(entries)
 }
 
 pub async fn get_entries_with_index_in(
-	db: Database,
+	db: PgPool,
 	u: UserId,
 	timeslot_id: Uuid,
-	indexes: Vec<u32>,
-) -> anyhow::Result<Vec<Entry>> {
-	let query = doc! {
-		"timeslot_id": timeslot_id,
-		"user_id": u.as_str(),
-		"index": {
-			"$in": indexes,
-		}
-	};
+	indexes: Vec<i32>,
+) -> anyhow::Result<Vec<WebEntry>> {
+	let entries_db = sqlx::query_as!(Entry, r#"SELECT user_id, index, timeslot_id, state AS "state: Json<EntryState>" FROM entries WHERE timeslot_id = $1 AND user_id = $2 AND index = ANY($3)"#, timeslot_id, u.as_str(), &indexes[..])
+		.fetch_all(&db)
+		.await?;
 
-	spawn(async move {
-		let entries = collection_entries(&db).await;
+	let entries: Vec<WebEntry> = entries_db.into_iter()
+		.filter_map(model::convert_entry)
+		.collect();
 
-		Ok(entries
-			.find(query, None)
-			.await?
-			.filter_map(|v| async {
-				match v {
-					Ok(x) => Some(x),
-					Err(e) => {
-						error!(%e, "invalid data in database");
-						None
-					}
-				}
-			})
-			.map(std::convert::Into::into)
-			.collect()
-			.await)
-	})
-	.await
-	.unwrap()
+	Ok(entries)
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -88,65 +49,30 @@ pub enum InsertEntryError {
 	Other(#[from] anyhow::Error),
 }
 
-pub async fn insert_entry(db: Database, entry: BsonEntry) -> Result<(), InsertEntryError> {
-	let res = spawn(async move {
-		let entries = collection_entries(&db).await;
+pub async fn insert_entry(db: PgPool, entry: Entry) -> Result<(), InsertEntryError> {
+	let index: i32 = entry.index.try_into().unwrap();
 
-		entries.insert_one(entry, None).await
-	})
-	.await
-	.unwrap();
-
-	if let Err(e) = res {
-		use mongodb::error::{ErrorKind, WriteError, WriteFailure};
-
-		match *e.kind {
-			ErrorKind::Write(WriteFailure::WriteError(WriteError { code: 11000, .. })) => {
-				debug!("Duplicated entry.");
-
-				return Err(InsertEntryError::Duplicate);
-			}
-			_ => {
-				let anyerr: anyhow::Error = e.into();
-				return Err(anyerr)?;
-			}
-		}
-	};
+	sqlx::query!("INSERT INTO entries (id, user_id, index, timeslot_id, state) VALUES ($1, $2, $3, $4, $5)", uuid::Uuid::new_v4(), entry.user_id, index, entry.timeslot_id, entry.state as _)
+		.execute(&db)
+		.await
+		.map_err(Into::<anyhow::Error>::into)?;
 
 	Ok(())
 }
 
 pub async fn get_entry_by_index_range(
-	db: Database,
+	db: PgPool,
 	u: UserId,
 	id: uuid::Uuid,
-	index_range: Range<u32>,
-) -> anyhow::Result<Vec<Entry>> {
-	let query = doc! {
-		"user_id": u.as_str(),
-		"timeslot_id": id,
-		"index": {
-			"$gte": index_range.start,
-			"$lte": index_range.end,
-		}
-	};
+	index_range: Range<i32>,
+) -> anyhow::Result<Vec<WebEntry>> {
+	let entries_db = sqlx::query_as!(Entry, r#"SELECT user_id, timeslot_id, index, state AS "state: Json<EntryState>" FROM entries WHERE user_id = $1 AND timeslot_id = $2 AND index >= $3 AND index <= $4"#, u.as_str(), id, index_range.start, index_range.end)
+		.fetch_all(&db)
+		.await?;
 
-	spawn(async move {
-		let entries = collection_entries(&db).await;
+	let entries: Vec<WebEntry> = entries_db.into_iter()
+		.filter_map(model::convert_entry)
+		.collect();
 
-		Ok(entries
-			.find(query, None)
-			.await?
-			.filter_map(|v| async {
-				if let Ok(entry) = v {
-					Some(entry.into())
-				} else {
-					None
-				}
-			})
-			.collect()
-			.await)
-	})
-	.await
-	.unwrap()
+	Ok(entries)
 }

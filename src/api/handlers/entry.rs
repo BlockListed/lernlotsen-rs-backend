@@ -1,7 +1,7 @@
 use anyhow::Context;
 use axum::http::StatusCode;
 use chrono::{DateTime, FixedOffset};
-use mongodb::Database;
+use sqlx::PgPool;
 use tracing::{debug, error};
 use uuid::Uuid;
 
@@ -16,7 +16,7 @@ use crate::auth::UserId;
 use crate::db::queries::entry::{get_entries_by_timeslot_id, insert_entry, InsertEntryError};
 use crate::db::queries::timeslot::get_timeslot_by_id;
 
-use crate::db::model::{BsonEntry, Entry, EntryState, Student, TimeSlot};
+use crate::db::model::{Entry, EntryState, Student, TimeSlot};
 
 #[derive(Deserialize)]
 pub struct TimeSlotQuery {
@@ -45,7 +45,7 @@ pub struct QueryReturn {
 
 pub async fn query(
 	u: UserId,
-	db: Database,
+	db: PgPool,
 	q: TimeSlotQuery,
 ) -> anyhow::Result<Result<Vec<QueryReturn>, TimeslotQueryError>> {
 	let timeslot: TimeSlot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await? {
@@ -92,7 +92,7 @@ pub struct UnfilledEntry {
 
 pub async fn missing(
 	u: UserId,
-	db: Database,
+	db: PgPool,
 	q: TimeSlotQuery,
 ) -> anyhow::Result<Result<Vec<UnfilledEntry>, MissingEntriesError>> {
 	let timeslot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await? {
@@ -135,7 +135,7 @@ impl Into<WebError<Value>> for CreateEntryError {
 
 pub async fn create(
 	u: UserId,
-	db: Database,
+	db: PgPool,
 	r: CreateEntry,
 	q: TimeSlotQuery,
 ) -> anyhow::Result<Result<(), CreateEntryError>> {
@@ -152,7 +152,7 @@ pub async fn create(
 	);
 
 	let entry = match verify_state(&r.state, &selected_timeslot.students) {
-		Ok(()) => BsonEntry {
+		Ok(()) => Entry {
 			user_id: u.as_str().to_owned(),
 			index: r.index,
 			timeslot_id: selected_timeslot.id.into(),
@@ -195,7 +195,7 @@ impl Into<WebError<&'static str>> for NextEntryError {
 
 pub async fn next(
 	u: UserId,
-	db: Database,
+	db: PgPool,
 	q: TimeSlotQuery,
 ) -> anyhow::Result<Result<UnfilledEntry, NextEntryError>> {
 	let ts = match get_timeslot_by_id(db, u, q.id).await? {

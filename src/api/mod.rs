@@ -5,15 +5,13 @@ use axum::http::Request;
 use axum::routing::{delete, get};
 use axum::Router;
 
-use mongodb::{Client, Database};
-
+use sqlx::PgPool;
 use tower_http::trace::TraceLayer;
 use tower_request_id::{RequestId, RequestIdLayer};
 use tracing::{info, info_span};
 
 use crate::auth::Authenticator;
 use crate::configuration::Config;
-use crate::db::get_db;
 
 mod auth;
 mod entry;
@@ -26,24 +24,20 @@ mod util;
 
 #[derive(Clone)]
 pub struct AppState {
-	pub db: Database,
-	pub c: Client,
+	pub db: PgPool,
 	pub auth: Arc<Authenticator>,
 	pub cfg: Arc<Config>,
 }
 
-pub async fn run(c: Client, cfg: Config, auth: Authenticator) {
+pub async fn run(db: PgPool, cfg: Config, auth: Authenticator) {
 	let hosturl = cfg.hosturl;
 
 	let auth = Arc::new(auth);
 
 	let cfg = Arc::new(cfg);
 
-	let db = get_db(&c);
-
 	let state = AppState {
 		db,
-		c,
 		auth: auth.clone(),
 		cfg: cfg.clone(),
 	};

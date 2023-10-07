@@ -1,54 +1,30 @@
-use std::time::Duration;
+use std::{time::Duration, str::FromStr};
 
-use mongodb::{options::ClientOptions, Client, Collection, Database};
+use sqlx::{PgPool, postgres::{PgConnectOptions, PgPoolOptions}};
 
 use crate::configuration::Config;
 
 pub mod model;
 pub mod queries;
 
-mod migrate;
 
-use model::{BsonEntry, BsonTimeSlot};
+pub async fn get_pool(cfg: &Config) -> PgPool {
+	let pg_options = PgConnectOptions::from_str(&cfg.database.uri)
+		.expect("Invalid database URI")
+		.application_name("lelo_backend");
 
-use self::model::ConfigurationEntry;
+	let pool_options = PgPoolOptions::new()
+		.max_connections(5)
+		.min_connections(1)
+		.max_lifetime(Duration::from_secs(3600))
+		.acquire_timeout(Duration::from_secs(30));
 
-pub async fn get_client(cfg: &Config) -> Client {
-	let mut opts = ClientOptions::parse(&cfg.database.uri).await.unwrap();
+	let pool = pool_options.connect_with(pg_options).await.expect("Couldn not connect to db!");
 
-	opts.app_name = Some("Lernlotsen".to_string());
+	sqlx::migrate!()
+		.run(&pool)
+		.await
+		.expect("Couldn't complete migrations");
 
-	opts.connect_timeout = Some(Duration::from_secs(5));
-	opts.server_selection_timeout = Some(Duration::from_secs(5));
-	opts.max_idle_time = Some(Duration::from_secs(300));
-
-	let client = Client::with_options(opts).unwrap();
-	let database = client
-		.default_database()
-		.expect("missing default database in uri");
-
-	migrate::migrate(&database).await;
-
-	client
-}
-
-pub fn get_db(c: &Client) -> Database {
-	c.default_database()
-		.expect("missing default database in uri")
-}
-
-// I'm too lazy to change this shit.
-#[allow(clippy::unused_async)]
-pub async fn collection_timeslots(db: &Database) -> Collection<BsonTimeSlot> {
-	db.collection("timeslots")
-}
-
-#[allow(clippy::unused_async)]
-pub async fn collection_entries(db: &Database) -> Collection<BsonEntry> {
-	db.collection("entries")
-}
-
-#[allow(clippy::unused_async)]
-pub async fn collection_config(db: &Database) -> Collection<ConfigurationEntry> {
-	db.collection("config")
+	pool
 }
