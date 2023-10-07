@@ -1,6 +1,6 @@
 use bson::doc;
-use futures_util::StreamExt;
-use mongodb::{Database, Client};
+use futures_util::{FutureExt, StreamExt};
+use mongodb::{Client, Database};
 use tokio::spawn;
 use tracing::error;
 use uuid::Uuid;
@@ -8,8 +8,8 @@ use uuid::Uuid;
 use crate::{
 	auth::UserId,
 	db::{
-		collection_timeslots,
-		model::{BsonTimeSlot, TimeSlot}, collection_entries, self,
+		self, collection_entries, collection_timeslots,
+		model::{BsonTimeSlot, TimeSlot},
 	},
 };
 
@@ -91,15 +91,28 @@ pub async fn delete_timeslot_by_id(c: Client, u: UserId, id: Uuid) -> anyhow::Re
 		let mut session = c.start_session(None).await?;
 
 		let db = db::get_db(&c);
-		
+
 		let timeslots = collection_timeslots(&db).await;
 		let entries = collection_entries(&db).await;
 
-		entries.delete_many_with_session(entry_query, None, &mut session).await?;
+		session
+			.with_transaction(
+				(timeslots, entries, timeslot_query, entry_query),
+				|session, (ts, en, ts_q, en_q)| {
+					async move {
+						en.delete_many_with_session(en_q.clone(), None, session)
+							.await?;
 
-		timeslots.delete_one_with_session(timeslot_query, None, &mut session).await?;
+						ts.delete_one_with_session(ts_q.clone(), None, session)
+							.await?;
 
-		session.commit_transaction().await?;
+						mongodb::error::Result::Ok(())
+					}
+					.boxed()
+				},
+				None,
+			)
+			.await?;
 
 		Ok(())
 	})
