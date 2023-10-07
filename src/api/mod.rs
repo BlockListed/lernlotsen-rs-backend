@@ -2,10 +2,10 @@ use std::sync::Arc;
 
 use axum::body::Body;
 use axum::http::Request;
-use axum::routing::{get, delete};
+use axum::routing::{delete, get};
 use axum::Router;
 
-use mongodb::{Database, Client};
+use mongodb::{Client, Database};
 
 use tower_http::trace::TraceLayer;
 use tower_request_id::{RequestId, RequestIdLayer};

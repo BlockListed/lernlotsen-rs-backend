@@ -28,7 +28,10 @@ pub async fn health_check(db: Database) -> Result<&'static str, HealthCheckError
 }
 
 pub async fn database_test(db: Database) -> Result<(), ()> {
-	if let Err(e) = tokio::spawn(async move { db.list_collections(None, None).await }).map(Result::unwrap).await {
+	if let Err(e) = tokio::spawn(async move { db.list_collections(None, None).await })
+		.map(Result::unwrap)
+		.await
+	{
 		error!(err=%e, "health check error");
 		return Err(());
 	}

@@ -9,7 +9,7 @@ use chrono_tz::Tz;
 use futures_util::stream::FuturesOrdered;
 use futures_util::{FutureExt, StreamExt};
 use itertools::Itertools;
-use mongodb::{Database, Client};
+use mongodb::{Client, Database};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tracing::debug;
@@ -24,7 +24,9 @@ use crate::api::util::prelude::*;
 use crate::auth::UserId;
 use crate::db::model::{BsonTimeSlot, Entry, HasUserId, Student, TimeSlot};
 use crate::db::queries::entry::get_entry_by_index_range;
-use crate::db::queries::timeslot::{get_timeslot_by_id, get_timeslots, insert_timeslot, delete_timeslot_by_id};
+use crate::db::queries::timeslot::{
+	delete_timeslot_by_id, get_timeslot_by_id, get_timeslots, insert_timeslot,
+};
 use crate::util::create_isoweek;
 
 use super::entry::UnfilledEntry;

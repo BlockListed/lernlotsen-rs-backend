@@ -15,7 +15,7 @@ pub fn check_object_belong_to_userid<'a, T: HasUserId + 'a>(
 	user_id: &UserId,
 ) -> anyhow::Result<()> {
 	let Some(invalid) = entries.find(|i| i.user_id() != user_id.as_str()) else {
-		return Ok(())
+		return Ok(());
 	};
 
 	error!(
@@ -38,7 +38,7 @@ pub fn check_object_belong_to_userid_weberror<
 	user_id: &UserId,
 ) -> WebResult<&'static str, E> {
 	match check_object_belong_to_userid(entries, user_id) {
-		Ok(_) => Ok("great success".into()),
+		Ok(()) => Ok("great success".into()),
 		Err(_) => Err(WebError::internal_server_error()),
 	}
 }

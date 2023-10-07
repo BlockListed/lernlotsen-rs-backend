@@ -33,7 +33,8 @@ pub async fn get_client(cfg: &Config) -> Client {
 }
 
 pub fn get_db(c: &Client) -> Database {
-	c.default_database().expect("missing default database in uri")
+	c.default_database()
+		.expect("missing default database in uri")
 }
 
 // I'm too lazy to change this shit.

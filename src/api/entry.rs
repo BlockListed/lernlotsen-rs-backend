@@ -21,7 +21,7 @@ pub async fn create(
 ) -> WebResult<&'static str, Value> {
 	match entry::create(u, db, r, q).await {
 		Ok(d) => d
-			.map(|_| (StatusCode::CREATED, "created entry"))
+			.map(|()| (StatusCode::CREATED, "created entry"))
 			.transpose_web(),
 		Err(e) => {
 			error!(%e, "error while handling request");

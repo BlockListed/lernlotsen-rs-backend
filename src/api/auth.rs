@@ -32,7 +32,10 @@ pub async fn auth_middleware<B>(
 	next: Next<B>,
 ) -> Response {
 	let Some(auth_token) = cookies.get("auth_token") else {
-		return WebResult::<&'static str, &'static str>::Err((StatusCode::UNAUTHORIZED, "missing authorization cookie").into()).into_response();
+		return WebResult::<&'static str, &'static str>::Err(
+			(StatusCode::UNAUTHORIZED, "missing authorization cookie").into(),
+		)
+		.into_response();
 	};
 
 	let auth_status = auth.verify(auth_token).await;

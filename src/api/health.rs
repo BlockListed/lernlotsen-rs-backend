@@ -1,8 +1,8 @@
 use axum::extract::State;
 
-use crate::api::util::{TransposeResult, WebResult};
-use super::AppState;
 use super::handlers::health;
+use super::AppState;
+use crate::api::util::{TransposeResult, WebResult};
 
 pub async fn health_check(
 	State(AppState { db, .. }): State<AppState>,

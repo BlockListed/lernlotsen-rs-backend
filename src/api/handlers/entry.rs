@@ -152,7 +152,7 @@ pub async fn create(
 	);
 
 	let entry = match verify_state(&r.state, &selected_timeslot.students) {
-		Ok(_) => BsonEntry {
+		Ok(()) => BsonEntry {
 			user_id: u.as_str().to_owned(),
 			index: r.index,
 			timeslot_id: selected_timeslot.id.into(),
@@ -165,7 +165,7 @@ pub async fn create(
 	};
 
 	match insert_entry(db, entry).await {
-		Ok(_) => (),
+		Ok(()) => (),
 		Err(e) => match e {
 			InsertEntryError::Duplicate => {
 				return Ok(Err(CreateEntryError::DuplicateIndex));
