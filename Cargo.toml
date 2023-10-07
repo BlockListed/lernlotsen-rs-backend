@@ -30,3 +30,4 @@ anyhow = "1.0.75"
 tracing-bunyan-formatter = "0.3.9"
 itertools = "0.11.0"
 axum-server = { version = "0.5.1", features = ["tls-rustls"] }
+sqlx = { version = "0.7.2", features = ["chrono", "postgres", "runtime-tokio-rustls", "uuid"] }
