@@ -54,7 +54,7 @@ pub enum InsertEntryError {
 pub async fn insert_entry(db: PgPool, entry: Entry) -> Result<(), InsertEntryError> {
 	let index: i32 = entry.index;
 
-	sqlx::query!(
+	match sqlx::query!(
 		"INSERT INTO entries (id, user_id, index, timeslot_id, state) VALUES ($1, $2, $3, $4, $5)",
 		uuid::Uuid::new_v4(),
 		entry.user_id,
@@ -63,8 +63,20 @@ pub async fn insert_entry(db: PgPool, entry: Entry) -> Result<(), InsertEntryErr
 		entry.state as _
 	)
 	.execute(&db)
-	.await
-	.map_err(Into::<anyhow::Error>::into)?;
+	.await {
+		Ok(_) => (),
+		Err(sqlx::Error::Database(d)) => match d.kind() {
+			sqlx::error::ErrorKind::UniqueViolation => return Err(InsertEntryError::Duplicate),
+			_ => {
+				let res: anyhow::Error = sqlx::Error::Database(d).into();
+				Err(res)?;
+			},
+		},
+		Err(e) => {
+			let res: anyhow::Error = e.into();
+			Err(res)?;
+		}
+	}
 
 	Ok(())
 }
