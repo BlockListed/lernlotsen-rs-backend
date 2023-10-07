@@ -1,23 +1,19 @@
 -- Add migration script here
-CREATE TYPE student AS (
-	name varchar(255)
-);
-
 CREATE TYPE timeslot_time AS (
-	start_time	time,
-	end_time	time
+	beginning	time,
+	finish	time
 );
 
 CREATE TYPE timeslot_range AS (
-	start_date	date,
-	end_date	date
+	beginning	date,
+	finish	date
 );
 
 CREATE TABLE timeslots (
 	id uuid PRIMARY KEY,
 	user_id varchar(255) NOT NULL,
 	subject varchar(127) NOT NULL,
-	students student[] NOT NULL,
+	students varchar(255)[] NOT NULL,
 	time timeslot_time NOT NULL,
 	timerange timeslot_range NOT NULL,
 	timezone varchar(127) NOT NULL
