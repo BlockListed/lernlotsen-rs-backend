@@ -50,7 +50,7 @@ pub struct DbTime {
 }
 
 #[derive(Debug, sqlx::Type)]
-#[sqlx(type_name = "timeslot_timerange")]
+#[sqlx(type_name = "timeslot_range")]
 pub struct DbTimerange {
 	pub beginning: NaiveDate,
 	pub finish: NaiveDate,
