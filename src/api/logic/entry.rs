@@ -128,6 +128,7 @@ pub async fn missing_entries(
 
 	// Entry indices are always u32 or smaller.
 	#[allow(clippy::cast_possible_truncation)]
+	#[allow(clippy::cast_possible_wrap)]
 	let required_indexes = required_entries
 		.keys()
 		.map(|x| *x as i32)

@@ -22,7 +22,7 @@ use crate::api::logic::export::format_entry;
 use crate::api::logic::timeslot::get_index_range_timeslot;
 use crate::api::util::prelude::*;
 use crate::auth::UserId;
-use crate::db::model::{TimeSlot, HasUserId, Student, WebTimeSlot, WebEntry, DbTime, DbTimerange};
+use crate::db::model::{DbTime, DbTimerange, HasUserId, Student, TimeSlot, WebEntry, WebTimeSlot};
 use crate::db::queries::entry::get_entry_by_index_range;
 use crate::db::queries::timeslot::{
 	delete_timeslot_by_id, get_timeslot_by_id, get_timeslots, insert_timeslot,
@@ -113,11 +113,17 @@ pub async fn create(
 	let id = Uuid::new_v4();
 	let ts = TimeSlot {
 		user_id: u.as_str().to_owned(),
-		id: id.into(),
+		id,
 		subject: r.subject,
 		students: r.students.into_iter().map(|student| student.name).collect(),
-		time: DbTime { beginning: r.time.start, finish: r.time.end },
-		timerange: DbTimerange { beginning: r.timerange.start, finish: r.timerange.end },
+		time: DbTime {
+			beginning: r.time.start,
+			finish: r.time.end,
+		},
+		timerange: DbTimerange {
+			beginning: r.timerange.start,
+			finish: r.timerange.end,
+		},
 		timezone: r.timezone.name().to_string(),
 	};
 
@@ -242,6 +248,7 @@ pub async fn export(
 
 		// Entry indices are always equal to or less than to u32.
 		#[allow(clippy::cast_possible_truncation)]
+		#[allow(clippy::cast_possible_wrap)]
 		if (entries.len() as i32) < expected_count {
 			match missing_entry_errors.as_mut() {
 				Some(v) => v.push((ts.subject, ts.id)),

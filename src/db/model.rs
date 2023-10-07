@@ -37,7 +37,7 @@ impl TryFrom<u8> for StudentStatus {
 			0 => Ok(StudentStatus::Present),
 			1 => Ok(StudentStatus::Pardoned),
 			2 => Ok(StudentStatus::Missing),
-			_ => Err(IntoEnumError::InvalidValue)
+			_ => Err(IntoEnumError::InvalidValue),
 		}
 	}
 }
@@ -95,11 +95,6 @@ impl From<JsonValue> for EntryState {
 	}
 }
 
-pub enum IntoEntryStateError {
-	InvalidValue,
-	MissingStudentsField,
-}
-
 #[derive(Debug)]
 pub struct Entry {
 	pub user_id: String,
@@ -134,7 +129,20 @@ pub fn convert_ts(ts: TimeSlot) -> Option<WebTimeSlot> {
 
 	let weekday = ts.timerange.beginning.weekday();
 
-	Some(WebTimeSlot { user_id: ts.user_id, id: ts.id, subject: ts.subject, students: ts.students.into_iter().map(|s| Student { name: s }).collect(), time, timerange, weekday, timezone })
+	Some(WebTimeSlot {
+		user_id: ts.user_id,
+		id: ts.id,
+		subject: ts.subject,
+		students: ts
+			.students
+			.into_iter()
+			.map(|s| Student { name: s })
+			.collect(),
+		time,
+		timerange,
+		weekday,
+		timezone,
+	})
 }
 
 #[derive(Serialize, Deserialize)]
@@ -154,7 +162,12 @@ pub fn convert_entry(e: Entry) -> Option<WebEntry> {
 		}
 	};
 
-	Some(WebEntry { user_id: e.user_id, index, timeslot_id: e.timeslot_id, state: e.state.0 })
+	Some(WebEntry {
+		user_id: e.user_id,
+		index,
+		timeslot_id: e.timeslot_id,
+		state: e.state.0,
+	})
 }
 
 pub trait HasUserId {

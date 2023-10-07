@@ -1,12 +1,12 @@
 use std::ops::Range;
 
-use sqlx::PgPool;
 use sqlx::types::Json;
+use sqlx::PgPool;
 use tracing::error;
 use uuid::Uuid;
 
-use crate::db::model::{Entry, EntryState, WebEntry, self};
 use crate::auth::UserId;
+use crate::db::model::{self, Entry, EntryState, WebEntry};
 
 pub async fn get_entries_by_timeslot_id(
 	db: PgPool,
@@ -17,7 +17,8 @@ pub async fn get_entries_by_timeslot_id(
 		.fetch_all(&db)
 		.await?;
 
-	let entries: Vec<WebEntry> = entries_db.into_iter()
+	let entries: Vec<WebEntry> = entries_db
+		.into_iter()
 		.filter_map(model::convert_entry)
 		.collect();
 
@@ -34,7 +35,8 @@ pub async fn get_entries_with_index_in(
 		.fetch_all(&db)
 		.await?;
 
-	let entries: Vec<WebEntry> = entries_db.into_iter()
+	let entries: Vec<WebEntry> = entries_db
+		.into_iter()
 		.filter_map(model::convert_entry)
 		.collect();
 
@@ -50,12 +52,19 @@ pub enum InsertEntryError {
 }
 
 pub async fn insert_entry(db: PgPool, entry: Entry) -> Result<(), InsertEntryError> {
-	let index: i32 = entry.index.try_into().unwrap();
+	let index: i32 = entry.index;
 
-	sqlx::query!("INSERT INTO entries (id, user_id, index, timeslot_id, state) VALUES ($1, $2, $3, $4, $5)", uuid::Uuid::new_v4(), entry.user_id, index, entry.timeslot_id, entry.state as _)
-		.execute(&db)
-		.await
-		.map_err(Into::<anyhow::Error>::into)?;
+	sqlx::query!(
+		"INSERT INTO entries (id, user_id, index, timeslot_id, state) VALUES ($1, $2, $3, $4, $5)",
+		uuid::Uuid::new_v4(),
+		entry.user_id,
+		index,
+		entry.timeslot_id,
+		entry.state as _
+	)
+	.execute(&db)
+	.await
+	.map_err(Into::<anyhow::Error>::into)?;
 
 	Ok(())
 }
@@ -70,7 +79,8 @@ pub async fn get_entry_by_index_range(
 		.fetch_all(&db)
 		.await?;
 
-	let entries: Vec<WebEntry> = entries_db.into_iter()
+	let entries: Vec<WebEntry> = entries_db
+		.into_iter()
 		.filter_map(model::convert_entry)
 		.collect();
 

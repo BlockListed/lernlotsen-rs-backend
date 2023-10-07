@@ -1,12 +1,14 @@
-use std::{time::Duration, str::FromStr};
+use std::{str::FromStr, time::Duration};
 
-use sqlx::{PgPool, postgres::{PgConnectOptions, PgPoolOptions}};
+use sqlx::{
+	postgres::{PgConnectOptions, PgPoolOptions},
+	PgPool,
+};
 
 use crate::configuration::Config;
 
 pub mod model;
 pub mod queries;
-
 
 pub async fn get_pool(cfg: &Config) -> PgPool {
 	let pg_options = PgConnectOptions::from_str(&cfg.database.uri)
@@ -19,7 +21,10 @@ pub async fn get_pool(cfg: &Config) -> PgPool {
 		.max_lifetime(Duration::from_secs(3600))
 		.acquire_timeout(Duration::from_secs(30));
 
-	let pool = pool_options.connect_with(pg_options).await.expect("Couldn not connect to db!");
+	let pool = pool_options
+		.connect_with(pg_options)
+		.await
+		.expect("Couldn not connect to db!");
 
 	sqlx::migrate!()
 		.run(&pool)

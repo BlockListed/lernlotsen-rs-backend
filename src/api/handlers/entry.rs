@@ -16,7 +16,7 @@ use crate::auth::UserId;
 use crate::db::queries::entry::{get_entries_by_timeslot_id, insert_entry, InsertEntryError};
 use crate::db::queries::timeslot::get_timeslot_by_id;
 
-use crate::db::model::{WebEntry, Entry, EntryState, Student, WebTimeSlot};
+use crate::db::model::{Entry, EntryState, Student, WebEntry, WebTimeSlot};
 
 #[derive(Deserialize)]
 pub struct TimeSlotQuery {
@@ -152,10 +152,11 @@ pub async fn create(
 	);
 
 	let entry = match verify_state(&r.state, &selected_timeslot.students) {
+		#[allow(clippy::cast_possible_wrap)]
 		Ok(()) => Entry {
 			user_id: u.as_str().to_owned(),
 			index: r.index as i32,
-			timeslot_id: selected_timeslot.id.into(),
+			timeslot_id: selected_timeslot.id,
 			state: sqlx::types::Json(r.state),
 		},
 		Err(s) => {
