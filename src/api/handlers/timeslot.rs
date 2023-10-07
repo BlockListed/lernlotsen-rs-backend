@@ -9,7 +9,7 @@ use chrono_tz::Tz;
 use futures_util::stream::FuturesOrdered;
 use futures_util::{FutureExt, StreamExt};
 use itertools::Itertools;
-use mongodb::Database;
+use mongodb::{Database, Client};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tracing::debug;
@@ -130,8 +130,8 @@ pub struct DeleteRequest {
 	id: Uuid,
 }
 
-pub async fn delete(u: UserId, db: Database, r: DeleteRequest) -> anyhow::Result<()> {
-	delete_timeslot_by_id(db, u, r.id).await
+pub async fn delete(u: UserId, c: Client, r: DeleteRequest) -> anyhow::Result<()> {
+	delete_timeslot_by_id(c, u, r.id).await
 }
 
 #[derive(Deserialize)]
