@@ -78,11 +78,18 @@ pub enum EntryState {
 	CancelledByTutor,
 	Holidays,
 	Other,
+	InvalidData,
 }
 
 impl From<JsonValue> for EntryState {
 	fn from(value: JsonValue) -> Self {
-		let Ok(entry_state) = EntryState::deserialize(value);
+		let entry_state = match EntryState::deserialize(value) {
+			Ok(s) => s,
+			Err(e) => {
+				error!(%e, "entry state data in database is corrupt");
+				return Self::InvalidData;
+			}
+		};
 
 		entry_state
 	}
@@ -103,6 +110,7 @@ pub struct Entry {
 
 #[derive(Serialize, Deserialize)]
 pub struct WebTimeSlot {
+	pub user_id: String,
 	pub id: Uuid,
 	pub subject: String,
 	pub students: Vec<Student>,
@@ -124,7 +132,9 @@ pub fn convert_ts(ts: TimeSlot) -> Option<WebTimeSlot> {
 	let time = ts.time.beginning..ts.time.finish;
 	let timerange = ts.timerange.beginning..ts.timerange.finish;
 
-	Some(WebTimeSlot { id: ts.id, subject: ts.subject, students: ts.students.into_iter().map(|s| Student { name: s }).collect(), time, timerange, weekday: timerange.start.weekday(), timezone })
+	let weekday = ts.timerange.beginning.weekday();
+
+	Some(WebTimeSlot { user_id: ts.user_id, id: ts.id, subject: ts.subject, students: ts.students.into_iter().map(|s| Student { name: s }).collect(), time, timerange, weekday, timezone })
 }
 
 #[derive(Serialize, Deserialize)]
@@ -152,7 +162,7 @@ pub trait HasUserId {
 	fn identifier(&self) -> String;
 }
 
-impl HasUserId for TimeSlot {
+impl HasUserId for WebTimeSlot {
 	fn user_id(&self) -> &str {
 		&self.user_id
 	}
@@ -162,7 +172,7 @@ impl HasUserId for TimeSlot {
 	}
 }
 
-impl HasUserId for Entry {
+impl HasUserId for WebEntry {
 	fn user_id(&self) -> &str {
 		&self.user_id
 	}

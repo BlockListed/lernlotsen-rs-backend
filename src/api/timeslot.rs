@@ -7,7 +7,7 @@ use serde_json::Value;
 use tracing::error;
 use uuid::Uuid;
 
-use crate::db::model::TimeSlot;
+use crate::db::model::WebTimeSlot;
 
 use crate::api::util::{prelude::*, WebError};
 use crate::auth::UserId;
@@ -21,7 +21,7 @@ pub async fn query(
 	State(AppState { db, .. }): State<AppState>,
 	Extension(u): Extension<UserId>,
 	Query(q): Query<TimeSlotQuery>,
-) -> WebResult<Vec<TimeSlot>, &'static str> {
+) -> WebResult<Vec<WebTimeSlot>, &'static str> {
 	let data = match timeslot::query(u.clone(), db, q).await {
 		Ok(d) => d,
 		Err(e) => {
@@ -65,7 +65,7 @@ pub async fn delete(
 	Extension(u): Extension<UserId>,
 	Json(r): Json<timeslot::DeleteRequest>,
 ) -> WebResult<&'static str, &'static str> {
-	match timeslot::delete(u, c, r).await {
+	match timeslot::delete(u, db, r).await {
 		Ok(()) => Ok((StatusCode::OK, "deleted").into()),
 		Err(e) => {
 			error!(%e, "error while handling request");

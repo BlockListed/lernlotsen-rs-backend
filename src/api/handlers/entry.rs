@@ -16,7 +16,7 @@ use crate::auth::UserId;
 use crate::db::queries::entry::{get_entries_by_timeslot_id, insert_entry, InsertEntryError};
 use crate::db::queries::timeslot::get_timeslot_by_id;
 
-use crate::db::model::{Entry, EntryState, Student, TimeSlot};
+use crate::db::model::{WebEntry, Entry, EntryState, Student, WebTimeSlot};
 
 #[derive(Deserialize)]
 pub struct TimeSlotQuery {
@@ -39,7 +39,7 @@ impl Into<WebError<&'static str>> for TimeslotQueryError {
 
 #[derive(Serialize)]
 pub struct QueryReturn {
-	pub entry: Entry,
+	pub entry: WebEntry,
 	pub timestamp: DateTime<FixedOffset>,
 }
 
@@ -48,7 +48,7 @@ pub async fn query(
 	db: PgPool,
 	q: TimeSlotQuery,
 ) -> anyhow::Result<Result<Vec<QueryReturn>, TimeslotQueryError>> {
-	let timeslot: TimeSlot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await? {
+	let timeslot: WebTimeSlot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await? {
 		Some(x) => x,
 		None => return Ok(Err(TimeslotQueryError::TimeslotNotFound)),
 	};
@@ -154,9 +154,9 @@ pub async fn create(
 	let entry = match verify_state(&r.state, &selected_timeslot.students) {
 		Ok(()) => Entry {
 			user_id: u.as_str().to_owned(),
-			index: r.index,
+			index: r.index as i32,
 			timeslot_id: selected_timeslot.id.into(),
-			state: r.state,
+			state: sqlx::types::Json(r.state),
 		},
 		Err(s) => {
 			debug!("request contained invalid students");

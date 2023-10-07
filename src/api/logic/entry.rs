@@ -3,14 +3,14 @@ use std::collections::HashMap;
 use chrono::{DateTime, TimeZone, Utc};
 use chrono::{Duration, NaiveDate};
 use chrono_tz::Tz;
-use mongodb::Database;
 
+use sqlx::PgPool;
 use tracing::{debug, trace, warn};
 
 use crate::api::handlers;
 use crate::api::handlers::entry::UnfilledEntry;
 use crate::auth::UserId;
-use crate::db::model::{EntryState, Student, TimeSlot};
+use crate::db::model::{EntryState, Student, WebTimeSlot};
 use crate::db::queries::entry::get_entries_with_index_in;
 
 pub fn verify_state(state: &EntryState, timeslot_students: &[Student]) -> Result<(), Vec<Student>> {
@@ -35,12 +35,12 @@ pub fn verify_state(state: &EntryState, timeslot_students: &[Student]) -> Result
 }
 
 pub struct EntriesForTimeslot<'a> {
-	timeslot: &'a TimeSlot,
+	timeslot: &'a WebTimeSlot,
 	until: NaiveDate,
 	index: u32,
 }
 
-fn get_entries(timeslot: &TimeSlot) -> EntriesForTimeslot {
+fn get_entries(timeslot: &WebTimeSlot) -> EntriesForTimeslot {
 	let now = Utc::now().date_naive();
 
 	trace!(until=%now, "calculating missing entries");
@@ -79,7 +79,7 @@ impl<'a> Iterator for EntriesForTimeslot<'a> {
 }
 
 pub fn get_time_from_index_and_timeslot(
-	timeslot: &TimeSlot,
+	timeslot: &WebTimeSlot,
 	index: u32,
 ) -> Option<DateTime<chrono_tz::Tz>> {
 	let days_from_start = chrono::Days::new(u64::from(7 * index));
@@ -113,9 +113,9 @@ pub fn get_time_from_index_and_timeslot(
 }
 
 pub async fn missing_entries(
-	db: Database,
+	db: PgPool,
 	u: UserId,
-	timeslot: TimeSlot,
+	timeslot: WebTimeSlot,
 ) -> anyhow::Result<Vec<handlers::entry::UnfilledEntry>> {
 	let mut required_entries = get_entries(&timeslot)
 		.enumerate()
@@ -130,7 +130,7 @@ pub async fn missing_entries(
 	#[allow(clippy::cast_possible_truncation)]
 	let required_indexes = required_entries
 		.keys()
-		.map(|x| *x as u32)
+		.map(|x| *x as i32)
 		.collect::<Vec<_>>();
 
 	let found_indexes = get_entries_with_index_in(db.clone(), u, timeslot.id, required_indexes)
@@ -159,7 +159,7 @@ pub async fn missing_entries(
 	Ok(missing_entries)
 }
 
-pub fn next_entry_date_timeslot(ts: &TimeSlot) -> Option<(u32, DateTime<chrono_tz::Tz>)> {
+pub fn next_entry_date_timeslot(ts: &WebTimeSlot) -> Option<(u32, DateTime<chrono_tz::Tz>)> {
 	let start = ts.timerange.start.and_time(ts.time.start);
 
 	let start: DateTime<Tz> = ts.timezone.from_local_datetime(&start).single()?;

@@ -3,10 +3,10 @@ use std::ops::Range;
 use chrono::{IsoWeek, NaiveDate, Weekday};
 use tracing::trace;
 
-use crate::db::model::TimeSlot;
+use crate::db::model::WebTimeSlot;
 
 // Returns all timeslots indices, which fall into timerange
-pub fn get_index_range_timeslot(ts: &TimeSlot, range: Range<IsoWeek>) -> Option<Range<u32>> {
+pub fn get_index_range_timeslot(ts: &WebTimeSlot, range: Range<IsoWeek>) -> Option<Range<i32>> {
 	let start = NaiveDate::from_isoywd_opt(range.start.year(), range.start.week(), Weekday::Sun)?;
 	let end = NaiveDate::from_isoywd_opt(range.end.year(), range.end.week(), Weekday::Sun)?;
 
@@ -18,7 +18,7 @@ pub fn get_index_range_timeslot(ts: &TimeSlot, range: Range<IsoWeek>) -> Option<
 
 	// Both should always be positive
 	// Since ts.timerange.start <= ts.timerange.end is checked for in creation function.
-	let start_index: u32 = {
+	let start_index: i32 = {
 		if start < ts.timerange.start {
 			0
 		} else {
@@ -26,7 +26,7 @@ pub fn get_index_range_timeslot(ts: &TimeSlot, range: Range<IsoWeek>) -> Option<
 		}
 	};
 	trace!(start_index, "got start index");
-	let end_index: u32 = {
+	let end_index: i32 = {
 		if end > ts.timerange.end {
 			(ts.timerange.end - ts.timerange.start)
 				.num_weeks()

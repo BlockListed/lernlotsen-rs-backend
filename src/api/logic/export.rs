@@ -64,6 +64,10 @@ pub fn format_entry(entry: &EntryState, students: &[Student]) -> String {
 			let students = format_students(students);
 			format!("Unterricht mit {students} konnte aus unbekannten Gründen nicht stattfinden.")
 		}
+		EntryState::InvalidData => {
+			let students = format_students(students);
+			format!("Informationen über Unterricht mit {} sind unvollständig.", students)
+		}
 	}
 }
 

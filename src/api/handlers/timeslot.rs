@@ -22,7 +22,7 @@ use crate::api::logic::export::format_entry;
 use crate::api::logic::timeslot::get_index_range_timeslot;
 use crate::api::util::prelude::*;
 use crate::auth::UserId;
-use crate::db::model::{Entry, HasUserId, Student, TimeSlot};
+use crate::db::model::{TimeSlot, HasUserId, Student, WebTimeSlot, WebEntry, DbTime, DbTimerange};
 use crate::db::queries::entry::get_entry_by_index_range;
 use crate::db::queries::timeslot::{
 	delete_timeslot_by_id, get_timeslot_by_id, get_timeslots, insert_timeslot,
@@ -36,7 +36,7 @@ pub struct TimeSlotQuery {
 	id: Option<Uuid>,
 }
 
-pub async fn query(u: UserId, db: PgPool, q: TimeSlotQuery) -> anyhow::Result<Vec<TimeSlot>> {
+pub async fn query(u: UserId, db: PgPool, q: TimeSlotQuery) -> anyhow::Result<Vec<WebTimeSlot>> {
 	let res = match q.id {
 		Some(id) => {
 			let mut output = Vec::new();
@@ -115,11 +115,10 @@ pub async fn create(
 		user_id: u.as_str().to_owned(),
 		id: id.into(),
 		subject: r.subject,
-		students: r.students,
-		time: r.time,
-		timerange: r.timerange,
-		weekday: r.weekday,
-		timezone: r.timezone,
+		students: r.students.into_iter().map(|student| student.name).collect(),
+		time: DbTime { beginning: r.time.start, finish: r.time.end },
+		timerange: DbTimerange { beginning: r.timerange.start, finish: r.timerange.end },
+		timezone: r.timezone.name().to_string(),
 	};
 
 	insert_timeslot(db, ts).await?;
@@ -132,8 +131,8 @@ pub struct DeleteRequest {
 	id: Uuid,
 }
 
-pub async fn delete(u: UserId, c: PgPool, r: DeleteRequest) -> anyhow::Result<()> {
-	delete_timeslot_by_id(c, u, r.id).await
+pub async fn delete(u: UserId, db: PgPool, r: DeleteRequest) -> anyhow::Result<()> {
+	delete_timeslot_by_id(db, u, r.id).await
 }
 
 #[derive(Deserialize)]
@@ -234,7 +233,7 @@ pub async fn export(
 
 	// BtreeMap, because we need ordering
 	// TODO: Vec<Student> should probably be Arc<[Student]> to save allocations.
-	let mut week_map: BTreeMap<IsoWeek, Vec<(Entry, Vec<Student>)>> = BTreeMap::new();
+	let mut week_map: BTreeMap<IsoWeek, Vec<(WebEntry, Vec<Student>)>> = BTreeMap::new();
 
 	let mut missing_entry_errors: Option<Vec<(String, uuid::Uuid)>> = None;
 
@@ -243,7 +242,7 @@ pub async fn export(
 
 		// Entry indices are always equal to or less than to u32.
 		#[allow(clippy::cast_possible_truncation)]
-		if (entries.len() as u32) < expected_count {
+		if (entries.len() as i32) < expected_count {
 			match missing_entry_errors.as_mut() {
 				Some(v) => v.push((ts.subject, ts.id)),
 				None => missing_entry_errors = Some(vec![(ts.subject, ts.id)]),
@@ -291,7 +290,7 @@ pub async fn export(
 
 #[derive(Serialize)]
 pub struct InformationV3ResponseItem {
-	ts: TimeSlot,
+	ts: WebTimeSlot,
 	next: UnfilledEntry,
 	missing: u32,
 }
