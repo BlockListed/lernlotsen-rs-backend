@@ -1,0 +1,90 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, user_id, subject, students, time AS \"time: DbTime\", timerange AS \"timerange: DbTimerange\", timezone FROM timeslots WHERE user_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "subject",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "students",
+        "type_info": "VarcharArray"
+      },
+      {
+        "ordinal": 4,
+        "name": "time: DbTime",
+        "type_info": {
+          "Custom": {
+            "name": "timeslot_time",
+            "kind": {
+              "Composite": [
+                [
+                  "beginning",
+                  "Time"
+                ],
+                [
+                  "finish",
+                  "Time"
+                ]
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "timerange: DbTimerange",
+        "type_info": {
+          "Custom": {
+            "name": "timeslot_range",
+            "kind": {
+              "Composite": [
+                [
+                  "beginning",
+                  "Date"
+                ],
+                [
+                  "finish",
+                  "Date"
+                ]
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "timezone",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "61a4e2bdf79af73f3f0f007f555e7c34cf1cce7f2075fb467830d83cf7c5e4c3"
+}
