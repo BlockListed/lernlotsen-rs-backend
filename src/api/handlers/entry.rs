@@ -146,6 +146,7 @@ pub async fn create(
 		}
 	};
 
+	// Technically, not needed since, we have a constraint, that timeslot_id and user_id must match a single timeslot entry.
 	anyhow::ensure!(
 		selected_timeslot.user_id == u.as_str(),
 		"timeslot user_id is not equal to clients user_id"
