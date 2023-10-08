@@ -19,7 +19,7 @@ pub async fn get_pool(cfg: &Config) -> PgPool {
 		.max_connections(5)
 		.min_connections(1)
 		.max_lifetime(Duration::from_secs(3600))
-		.acquire_timeout(Duration::from_secs(30));
+		.acquire_timeout(Duration::from_secs(10));
 
 	let pool = pool_options
 		.connect_with(pg_options)
