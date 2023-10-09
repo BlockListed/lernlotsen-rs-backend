@@ -12,7 +12,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sqlx::PgPool;
-use tracing::debug;
+use tracing::{debug, warn};
 use uuid::Uuid;
 
 use crate::api::handlers;
@@ -147,9 +147,8 @@ pub struct ExportRequest {
 	start_week: u32,
 	end_year: i32,
 	end_week: u32,
-	#[allow(dead_code)]
 	#[serde(default)]
-	allow_incomplete_week: bool,
+	allow_incomplete: bool,
 }
 
 pub enum ExportError {
@@ -250,6 +249,12 @@ pub async fn export(
 		#[allow(clippy::cast_possible_truncation)]
 		#[allow(clippy::cast_possible_wrap)]
 		if (entries.len() as i32) < expected_count {
+			if q.allow_incomplete {
+				let timeslot = ts.id;
+				warn!(%timeslot ,"exporting incomplete timeslot");
+				continue;
+			}
+
 			match missing_entry_errors.as_mut() {
 				Some(v) => v.push((ts.subject, ts.id)),
 				None => missing_entry_errors = Some(vec![(ts.subject, ts.id)]),
