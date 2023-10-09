@@ -8,7 +8,8 @@ RUN cargo install bunyan
 
 COPY . .
 
-RUN cargo install --path .
+RUN --mount=type=cache,target=/app/src/target \
+	cargo install --path .
 
 FROM debian:bookworm-slim
 
