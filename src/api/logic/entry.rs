@@ -57,7 +57,7 @@ impl<'a> Iterator for EntriesForTimeslot<'a> {
 
 	fn next(&mut self) -> Option<Self::Item> {
 		let date_opt = get_time_from_index_and_timeslot(self.timeslot, self.index).and_then(|x| {
-			if x.date_naive() < self.until {
+			if x.date_naive() <= self.until {
 				Some(x)
 			} else {
 				None
