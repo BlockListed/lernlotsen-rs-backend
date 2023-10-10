@@ -256,14 +256,14 @@ pub async fn export(
 			if q.allow_incomplete {
 				let timeslot = ts.id;
 				warn!(%timeslot ,"exporting incomplete timeslot");
+			} else {
+				match missing_entry_errors.as_mut() {
+					Some(v) => v.push((ts.subject, ts.id)),
+					None => missing_entry_errors = Some(vec![(ts.subject, ts.id)]),
+				}
 				continue;
 			}
 
-			match missing_entry_errors.as_mut() {
-				Some(v) => v.push((ts.subject, ts.id)),
-				None => missing_entry_errors = Some(vec![(ts.subject, ts.id)]),
-			}
-			continue;
 		}
 
 		// We don't want to process anything else if a entry is missing,
