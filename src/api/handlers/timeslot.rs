@@ -12,7 +12,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sqlx::PgPool;
-use tracing::warn;
+use tracing::{warn, debug};
 use uuid::Uuid;
 
 use crate::api::handlers;
@@ -295,6 +295,7 @@ pub async fn export(
 	for (w, entries) in &week_map {
 		writeln!(output, "KW{}", w.week())?;
 		for (e, students) in entries {
+			debug!(ts=%e.timeslot_id, idx=e.index, "exporting entry");
 			writeln!(output, "{}", format_entry(&e.state, students))?;
 		}
 	}
