@@ -63,14 +63,15 @@ pub async fn insert_entry(db: PgPool, entry: Entry) -> Result<(), InsertEntryErr
 		entry.state as _
 	)
 	.execute(&db)
-	.await {
+	.await
+	{
 		Ok(_) => (),
 		Err(sqlx::Error::Database(d)) => match d.kind() {
 			sqlx::error::ErrorKind::UniqueViolation => return Err(InsertEntryError::Duplicate),
 			_ => {
 				let res: anyhow::Error = sqlx::Error::Database(d).into();
 				Err(res)?;
-			},
+			}
 		},
 		Err(e) => {
 			let res: anyhow::Error = e.into();

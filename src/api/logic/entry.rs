@@ -6,7 +6,7 @@ use chrono_tz::Tz;
 use itertools::Itertools;
 
 use sqlx::PgPool;
-use tracing::{debug, trace, warn, error};
+use tracing::{debug, error, trace, warn};
 
 use crate::api::handlers;
 use crate::api::handlers::entry::UnfilledEntry;
@@ -147,10 +147,12 @@ pub async fn missing_entries(
 	// Entry indices are always u32 or smaller.
 	let mut missing_entries = required_entries
 		.into_iter()
-		.map(|(i, d)| Ok(UnfilledEntry {
-			index: i.try_into()?,
-			timestamp: d.fixed_offset(),
-		}))
+		.map(|(i, d)| {
+			Ok(UnfilledEntry {
+				index: i.try_into()?,
+				timestamp: d.fixed_offset(),
+			})
+		})
 		.try_collect::<_, Vec<_>, std::num::TryFromIntError>()?;
 
 	missing_entries.sort_unstable_by_key(|x| x.index);
@@ -185,9 +187,12 @@ pub fn next_entry_date_timeslot(ts: &WebTimeSlot) -> Option<(u32, DateTime<chron
 	let raw_index = next_seconds / Duration::weeks(1).num_seconds();
 	assert!(raw_index >= 0);
 
-	let index: u32 = raw_index.try_into().map_err(|_| {
-		error!(raw_index, "next entry index value not valid u32");
-	}).ok()?;
+	let index: u32 = raw_index
+		.try_into()
+		.map_err(|_| {
+			error!(raw_index, "next entry index value not valid u32");
+		})
+		.ok()?;
 
 	// This is fine, since we check for a negative index.
 	Some((index, next_date))
