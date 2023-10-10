@@ -131,7 +131,7 @@ pub async fn missing_entries(
 	#[allow(clippy::cast_possible_wrap)]
 	let required_indexes = required_entries
 		.keys()
-		.map(|x| *x as i32)
+		.map(|x| (*x).try_into().unwrap())
 		.collect::<Vec<_>>();
 
 	let found_indexes = get_entries_with_index_in(db.clone(), u, timeslot.id, required_indexes)
@@ -141,7 +141,7 @@ pub async fn missing_entries(
 		.collect::<Vec<_>>();
 
 	for i in found_indexes {
-		required_entries.remove(&(i as usize));
+		required_entries.remove(&(i.try_into().expect("Failed to convert u32 into usize")));
 	}
 
 	// All found entries have already been removed.
@@ -188,7 +188,5 @@ pub fn next_entry_date_timeslot(ts: &WebTimeSlot) -> Option<(u32, DateTime<chron
 	assert!(index >= 0);
 
 	// This is fine, since we check for a negative index.
-	#[allow(clippy::cast_sign_loss)]
-	#[allow(clippy::cast_possible_truncation)]
-	Some((index as u32, next_date))
+	Some((index.try_into().unwrap(), next_date))
 }

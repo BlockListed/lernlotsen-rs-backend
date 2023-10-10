@@ -219,8 +219,10 @@ pub async fn export(
 				let db_task = db.clone();
 				let u_task = u.clone();
 				let expected_entry_count = r.end - r.start + 1;
+
+				let r_task = r.start.try_into().unwrap()..r.end.try_into().unwrap();
 				timeslot_handles.push(tokio::spawn(
-					get_entry_by_index_range(db_task, u_task, i.1.id, r)
+					get_entry_by_index_range(db_task, u_task, i.1.id, r_task)
 						.map(move |res| res.map(|e| (e, i.1, expected_entry_count))),
 				));
 			}
@@ -245,10 +247,10 @@ pub async fn export(
 	for res in entry_results {
 		let (entries, ts, expected_count) = res.unwrap()?;
 
+		let entries_len: u32 = entries.len().try_into().unwrap();
+
 		// Entry indices are always equal to or less than to u32.
-		#[allow(clippy::cast_possible_truncation)]
-		#[allow(clippy::cast_possible_wrap)]
-		if (entries.len() as i32) < expected_count {
+		if entries_len < expected_count {
 			if q.allow_incomplete {
 				let timeslot = ts.id;
 				warn!(%timeslot ,"exporting incomplete timeslot");

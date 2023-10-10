@@ -153,10 +153,9 @@ pub async fn create(
 	);
 
 	let entry = match verify_state(&r.state, &selected_timeslot.students) {
-		#[allow(clippy::cast_possible_wrap)]
 		Ok(()) => Entry {
 			user_id: u.as_str().to_owned(),
-			index: r.index as i32,
+			index: r.index.try_into().unwrap(),
 			timeslot_id: selected_timeslot.id,
 			state: sqlx::types::Json(r.state),
 		},
