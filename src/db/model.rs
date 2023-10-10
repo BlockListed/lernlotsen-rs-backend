@@ -145,7 +145,7 @@ pub fn convert_ts(ts: TimeSlot) -> Option<WebTimeSlot> {
 	})
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct WebEntry {
 	pub user_id: String,
 	pub index: u32,
