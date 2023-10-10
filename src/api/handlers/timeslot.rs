@@ -227,7 +227,7 @@ pub async fn export(
 				));
 			}
 			None => {
-				debug!(ts=%i.1.id, ?start, ?end, "timerange invalid for timeslot");
+				warn!(ts=%i.1.id, ?start, ?end, "timerange invalid for timeslot");
 			}
 		}
 	}
