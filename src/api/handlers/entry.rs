@@ -155,7 +155,7 @@ pub async fn create(
 	let entry = match verify_state(&r.state, &selected_timeslot.students) {
 		Ok(()) => Entry {
 			user_id: u.as_str().to_owned(),
-			index: r.index.try_into().unwrap(),
+			index: r.index.try_into()?,
 			timeslot_id: selected_timeslot.id,
 			state: sqlx::types::Json(r.state),
 		},

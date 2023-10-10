@@ -220,7 +220,7 @@ pub async fn export(
 				let u_task = u.clone();
 				let expected_entry_count = r.end - r.start + 1;
 
-				let r_task = r.start.try_into().unwrap()..r.end.try_into().unwrap();
+				let r_task = r.start.try_into()?..r.end.try_into()?;
 				timeslot_handles.push(tokio::spawn(
 					get_entry_by_index_range(db_task, u_task, i.1.id, r_task)
 						.map(move |res| res.map(|e| (e, i.1, expected_entry_count))),
@@ -247,7 +247,7 @@ pub async fn export(
 	for res in entry_results {
 		let (entries, ts, expected_count) = res.unwrap()?;
 
-		let entries_len: u32 = entries.len().try_into().unwrap();
+		let entries_len: u32 = entries.len().try_into()?;
 
 		// Entry indices are always equal to or less than to u32.
 		if entries_len < expected_count {
@@ -352,7 +352,7 @@ pub async fn information(u: UserId, db: PgPool) -> anyhow::Result<InformationV3R
 			})?;
 
 			let missing = missing_res.and_then(|v| match v {
-				Ok(v) => Ok(v.len().try_into().unwrap()),
+				Ok(v) => Ok(v.len().try_into()?),
 				Err(e) => match e {
 					handlers::entry::MissingEntriesError::TimeslotNotFound => {
 						Err(anyhow::anyhow!("Timeslot went missing during handler call"))

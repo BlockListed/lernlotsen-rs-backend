@@ -3,9 +3,10 @@ use std::collections::HashMap;
 use chrono::{DateTime, TimeZone, Utc};
 use chrono::{Duration, NaiveDate};
 use chrono_tz::Tz;
+use itertools::Itertools;
 
 use sqlx::PgPool;
-use tracing::{debug, trace, warn};
+use tracing::{debug, trace, warn, error};
 
 use crate::api::handlers;
 use crate::api::handlers::entry::UnfilledEntry;
@@ -127,12 +128,10 @@ pub async fn missing_entries(
 	);
 
 	// Entry indices are always u32 or smaller.
-	#[allow(clippy::cast_possible_truncation)]
-	#[allow(clippy::cast_possible_wrap)]
 	let required_indexes = required_entries
 		.keys()
-		.map(|x| (*x).try_into().unwrap())
-		.collect::<Vec<_>>();
+		.map(|x| (*x).try_into())
+		.try_collect()?;
 
 	let found_indexes = get_entries_with_index_in(db.clone(), u, timeslot.id, required_indexes)
 		.await?
@@ -146,14 +145,13 @@ pub async fn missing_entries(
 
 	// All found entries have already been removed.
 	// Entry indices are always u32 or smaller.
-	#[allow(clippy::cast_possible_truncation)]
 	let mut missing_entries = required_entries
 		.into_iter()
-		.map(|(i, d)| UnfilledEntry {
-			index: i.try_into().unwrap(),
+		.map(|(i, d)| Ok(UnfilledEntry {
+			index: i.try_into()?,
 			timestamp: d.fixed_offset(),
-		})
-		.collect::<Vec<_>>();
+		}))
+		.try_collect::<_, Vec<_>, std::num::TryFromIntError>()?;
 
 	missing_entries.sort_unstable_by_key(|x| x.index);
 
@@ -184,9 +182,13 @@ pub fn next_entry_date_timeslot(ts: &WebTimeSlot) -> Option<(u32, DateTime<chron
 	let next_date = start + Duration::seconds(next_seconds);
 
 	// Will never be negative
-	let index = next_seconds / Duration::weeks(1).num_seconds();
-	assert!(index >= 0);
+	let raw_index = next_seconds / Duration::weeks(1).num_seconds();
+	assert!(raw_index >= 0);
+
+	let index: u32 = raw_index.try_into().map_err(|_| {
+		error!(raw_index, "next entry index value not valid u32");
+	}).ok()?;
 
 	// This is fine, since we check for a negative index.
-	Some((index.try_into().unwrap(), next_date))
+	Some((index, next_date))
 }
