@@ -247,10 +247,10 @@ pub async fn export(
 	for res in entry_results {
 		let (entries, ts, expected_count) = res.unwrap()?;
 
-		debug!(ts=%ts.id, ?entries, "found entries for export");
-
 		let entries_len: u32 = entries.len().try_into()?;
 
+		debug!(ts=%ts.id, entries_len, "found entries for export");
+		
 		// Entry indices are always equal to or less than to u32.
 		if entries_len < expected_count {
 			if q.allow_incomplete {
