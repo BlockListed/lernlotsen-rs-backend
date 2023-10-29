@@ -1,5 +1,5 @@
 use tracing_subscriber::EnvFilter;
-use tracing_subscriber::fmt::format::{FmtSpan, json};
+use tracing_subscriber::fmt::format::{FmtSpan, json, JsonFields};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
 
@@ -23,6 +23,7 @@ pub fn json_logging() {
 		.with_env_filter(env_filter())
 		.with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
 		.event_format(json().flatten_event(true).with_current_span(true).with_span_list(true))
+		.fmt_fields(JsonFields::new())
 		.init();
 }
 
