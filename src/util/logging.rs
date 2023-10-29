@@ -22,7 +22,7 @@ pub fn json_logging() {
 	tracing_subscriber::fmt()
 		.with_env_filter(env_filter())
 		.with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
-		.event_format(json().flatten_event(true))
+		.event_format(json().flatten_event(true).with_current_span(true).with_span_list(true))
 		.init();
 }
 
