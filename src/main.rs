@@ -12,8 +12,6 @@
 use std::time::Duration;
 
 use auth::Authenticator;
-use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
-use tracing_subscriber::{layer::SubscriberExt, EnvFilter};
 
 use db::get_pool;
 
@@ -25,20 +23,23 @@ mod util;
 
 #[tokio::main]
 async fn main() {
-	let _ = dotenvy::dotenv();
+	if let Err(e) = dotenvy::dotenv() {
+		println!("WARN: Error getting dotenv file: {e}");
+	}
 
-	{
-		let env_filter =
-			EnvFilter::try_from_default_env().unwrap_or_else(|_| "info,tower_http=debug".into());
-
-		let formatting_layer = BunyanFormattingLayer::new("lernlotsen".into(), std::io::stdout);
-
-		let registry = tracing_subscriber::registry()
-			.with(env_filter)
-			.with(JsonStorageLayer)
-			.with(formatting_layer);
-
-		tracing::subscriber::set_global_default(registry).unwrap();
+	match std::env::var("LOGGING").as_ref().map(String::as_str) {
+		Ok("basic") => util::logging::basic_logging(),
+		Ok("bunyan") => util::logging::bunyan_logging(),
+		Ok("json") => util::logging::json_logging(),
+		Ok(v) =>  {
+			util::logging::basic_logging();
+			tracing::warn!(v, "unknown value for LOGGING env var, using basic formatter");
+		}
+		Err(std::env::VarError::NotPresent) => util::logging::basic_logging(),
+		Err(std::env::VarError::NotUnicode(v)) => {
+			util::logging::basic_logging();
+			tracing::warn!(v=%v.to_string_lossy(), "invalid Unicode value for LOGGING env var, using basic formatter");
+		}
 	}
 
 	let cfg_builder = config::Config::builder()

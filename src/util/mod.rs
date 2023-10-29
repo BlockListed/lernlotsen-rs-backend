@@ -1,5 +1,7 @@
 use chrono::{Datelike, IsoWeek, NaiveDate};
 
+pub mod logging;
+
 // Grabbed from `https://stackoverflow.com/questions/3407012/rounding-up-to-the-nearest-multiple-of-a-number`
 pub fn round_up_to_multiple(n: i64, mutliple: i64) -> i64 {
 	if mutliple == 0 {
