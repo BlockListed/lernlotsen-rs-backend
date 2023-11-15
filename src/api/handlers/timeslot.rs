@@ -12,7 +12,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sqlx::PgPool;
-use tracing::{warn, debug};
+use tracing::{debug, warn};
 use uuid::Uuid;
 
 use crate::api::handlers;
@@ -250,7 +250,7 @@ pub async fn export(
 		let entries_len: u32 = entries.len().try_into()?;
 
 		debug!(ts=%ts.id, entries_len, "found entries for export");
-		
+
 		// Entry indices are always equal to or less than to u32.
 		if entries_len < expected_count {
 			if q.allow_incomplete {
@@ -263,7 +263,6 @@ pub async fn export(
 				}
 				continue;
 			}
-
 		}
 
 		// We don't want to process anything else if a entry is missing,

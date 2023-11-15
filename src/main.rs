@@ -28,14 +28,16 @@ async fn main() {
 	}
 
 	match std::env::var("LOGGING").as_ref().map(String::as_str) {
-		Ok("basic") => util::logging::basic_logging(),
+		Ok("basic") | Err(std::env::VarError::NotPresent) => util::logging::basic_logging(),
 		Ok("bunyan") => util::logging::bunyan_logging(),
 		Ok("json") => util::logging::json_logging(),
-		Ok(v) =>  {
+		Ok(v) => {
 			util::logging::basic_logging();
-			tracing::warn!(v, "unknown value for LOGGING env var, using basic formatter");
+			tracing::warn!(
+				v,
+				"unknown value for LOGGING env var, using basic formatter"
+			);
 		}
-		Err(std::env::VarError::NotPresent) => util::logging::basic_logging(),
 		Err(std::env::VarError::NotUnicode(v)) => {
 			util::logging::basic_logging();
 			tracing::warn!(v=%v.to_string_lossy(), "invalid Unicode value for LOGGING env var, using basic formatter");
