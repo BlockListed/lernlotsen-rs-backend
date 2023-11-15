@@ -17,4 +17,4 @@ RUN apt-get update && apt-get install openssl ca-certificates -y && rm -rf /var/
 
 COPY --from=BUILDER /usr/local/cargo/bin/backend /app/backend
 
-ENTRYPOINT [ "env", "LOGGING=json", "/app/backend" ]
+ENTRYPOINT [ "env", "LOGGING=basic", "/app/backend" ]
