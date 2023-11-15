@@ -38,7 +38,7 @@ pub async fn get_timeslot_by_id(
 }
 
 pub async fn insert_timeslot(db: PgPool, ts: TimeSlot) -> anyhow::Result<()> {
-	sqlx::query!("INSERT INTO timeslots (id, user_id, subject, students, time, timerange, timezone) VALUES ($1, $2, $3, $4, $5, $6, $7)", ts.id, ts.user_id, ts.subject, ts.students as _, ts.time as _, ts.timerange as _, ts.timezone)
+	sqlx::query!("INSERT INTO timeslots (id, user_id, subject, students, time, timerange, timezone) VALUES ($1, $2, $3, $4, $5, $6, $7)", ts.id, ts.user_id, ts.subject, ts.students as Vec<String>, ts.time as DbTime, ts.timerange as DbTimerange, ts.timezone)
 		.execute(&db)
 		.await?;
 	Ok(())

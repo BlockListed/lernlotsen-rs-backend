@@ -60,7 +60,7 @@ pub async fn insert_entry(db: PgPool, entry: Entry) -> Result<(), InsertEntryErr
 		entry.user_id,
 		index,
 		entry.timeslot_id,
-		entry.state as _
+		entry.state as Json<EntryState>
 	)
 	.execute(&db)
 	.await
