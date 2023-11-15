@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM entries where user_id = $1 AND timeslot_id = $2 AND index = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "09eab30f3d132da66bead0fa1f198bcf8b1055cd48fe5ac02f1f7075b76a4502"
+}
