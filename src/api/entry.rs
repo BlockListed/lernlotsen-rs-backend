@@ -77,3 +77,17 @@ pub async fn next(
 		}
 	}
 }
+
+pub async fn delete(
+	State(AppState { db, .. }): State<AppState>,
+	Path(q): Path<entry::EntryQuery>,
+	Extension(u): Extension<UserId>,
+) -> WebResult<&'static str, &'static str> {
+	match entry::delete(db, u, q).await {
+		Ok(d) => d.map(|()| "success").transpose_web(),
+		Err(e) => {
+			error!(%e, "error while handling request");
+			Err(WebError::internal_server_error())
+		}
+	}
+}

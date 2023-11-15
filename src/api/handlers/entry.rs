@@ -13,7 +13,9 @@ use crate::api::logic::entry::{
 };
 use crate::api::util::prelude::*;
 use crate::auth::UserId;
-use crate::db::queries::entry::{get_entries_by_timeslot_id, insert_entry, InsertEntryError};
+use crate::db::queries::entry::{
+	delete_entry_by_id, get_entries_by_timeslot_id, insert_entry, InsertEntryError,
+};
 use crate::db::queries::timeslot::get_timeslot_by_id;
 
 use crate::db::model::{Entry, EntryState, Student, WebEntry, WebTimeSlot};
@@ -21,6 +23,12 @@ use crate::db::model::{Entry, EntryState, Student, WebEntry, WebTimeSlot};
 #[derive(Deserialize)]
 pub struct TimeSlotQuery {
 	pub id: Uuid,
+}
+
+#[derive(Deserialize)]
+pub struct EntryQuery {
+	pub id: Uuid,
+	pub index: u32,
 }
 
 pub enum TimeslotQueryError {
@@ -210,4 +218,21 @@ pub async fn next(
 			timestamp: d.fixed_offset(),
 		})
 		.context("timezone issue")?))
+}
+
+pub enum DeleteError {}
+
+impl Into<WebError<&'static str>> for DeleteError {
+	fn into(self) -> WebError<&'static str> {
+		(StatusCode::INTERNAL_SERVER_ERROR, "unknown server error").into()
+	}
+}
+
+pub async fn delete(
+	db: PgPool,
+	u: UserId,
+	q: EntryQuery,
+) -> anyhow::Result<Result<(), DeleteError>> {
+	delete_entry_by_id(db, u, q.id, q.index.try_into().unwrap()).await?;
+	Ok(Ok(()))
 }

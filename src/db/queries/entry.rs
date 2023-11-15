@@ -99,3 +99,20 @@ pub async fn get_entry_by_index_range(
 
 	Ok(entries)
 }
+
+pub async fn delete_entry_by_id(
+	db: PgPool,
+	u: UserId,
+	ts_id: uuid::Uuid,
+	index: i32,
+) -> anyhow::Result<()> {
+	sqlx::query!(
+		"DELETE FROM entries where user_id = $1 AND timeslot_id = $2 AND index = $3",
+		u.as_str(),
+		ts_id,
+		index
+	)
+	.execute(&db)
+	.await?;
+	Ok(())
+}
