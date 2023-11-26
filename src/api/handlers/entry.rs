@@ -222,6 +222,7 @@ pub async fn next(
 
 pub enum DeleteError {}
 
+#[allow(clippy::from_over_into)]
 impl Into<WebError<&'static str>> for DeleteError {
 	fn into(self) -> WebError<&'static str> {
 		(StatusCode::INTERNAL_SERVER_ERROR, "unknown server error").into()
