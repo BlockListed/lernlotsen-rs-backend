@@ -194,9 +194,3 @@ impl HasUserId for WebEntry {
 		format!("entry: {}-{}", self.timeslot_id, self.index)
 	}
 }
-
-#[derive(Serialize, Deserialize)]
-pub struct ConfigurationEntry {
-	pub key: String,
-	pub value: String,
-}
