@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE sessions SET authenticated = $2, user_id = $3 WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        {
+          "Custom": {
+            "name": "session_status",
+            "kind": {
+              "Enum": [
+                "initiated",
+                "authenticated"
+              ]
+            }
+          }
+        },
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "365890680a148988f2ca89d6cd2effa014c09b7bbf9ad2fc256b93e7b1d48563"
+}
