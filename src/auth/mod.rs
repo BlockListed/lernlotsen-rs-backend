@@ -64,16 +64,24 @@ impl Authenticator {
 	pub async fn authenticate(&self, db: PgPool, id: uuid::Uuid, code: &str) -> anyhow::Result<()> {
 		let session = queries::session::get_session(db.clone(), id).await?;
 
-		let token = self
-			.client
-			.authenticate(code, Some(session.nonce.as_str()), None)
-			.await?
-			.id_token
-			.unwrap();
+		// TODO sometimes firefox starts by sending the wrong cookies
+		// (not sure where these come from), gets a new cookie, but
+		// then uses the correct (different from the first and already
+		// authorized) when doing the callback.
+		let user_id = if session.authenticated != SessionStatus::Authenticated {
+			let token = self
+				.client
+				.authenticate(code, Some(session.nonce.as_str()), None)
+				.await?
+				.id_token
+				.unwrap();
 
-		let payload = token.payload().unwrap();
+			let payload = token.payload().unwrap();
 
-		let user_id = format!("{}:{}", payload.iss, payload.sub);
+			format!("{}:{}", payload.iss, payload.sub)
+		} else {
+			session.user_id.unwrap()
+		};
 
 		queries::session::authenticate(db, id, &user_id).await?;
 
