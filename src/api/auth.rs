@@ -49,7 +49,7 @@ pub async fn authenticate(
 	Query(q): Query<OidcCallback>,
 	TypedHeader(cookies): TypedHeader<Cookie>,
 ) -> WebResult<&'static str, &'static str> {
-	let session_id = extract_session_id(cookies)?;
+	let session_id = extract_session_id(&cookies)?;
 
 	match auth.authenticate(db, session_id, &q.code).await {
 		Ok(()) => (),
@@ -70,7 +70,7 @@ pub async fn auth_middleware<B>(
 	mut req: Request<B>,
 	next: Next<B>,
 ) -> Response {
-	let session_id = match extract_session_id(cookies) {
+	let session_id = match extract_session_id(&cookies) {
 		Ok(s) => s,
 		Err(e) => return StrWebResult::Err(e.into()).into_response(),
 	};
@@ -100,7 +100,7 @@ pub async fn auth_middleware<B>(
 	next.run(req).await
 }
 
-fn extract_session_id(cookies: Cookie) -> Result<uuid::Uuid, (StatusCode, &'static str)> {
+fn extract_session_id(cookies: &Cookie) -> Result<uuid::Uuid, (StatusCode, &'static str)> {
 	let raw_session_id = match cookies.get("session_id") {
 		Some(s) => s,
 		None => return Err((StatusCode::UNAUTHORIZED, "missing session_id cookie")),

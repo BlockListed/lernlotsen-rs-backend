@@ -103,7 +103,7 @@ impl Authenticator {
 }
 
 fn verify_session(session: &Session) -> Result<(), ()> {
-	verify_authenticated(session).and_then(|_| verify_session_expiry(session))
+	verify_authenticated(session).and_then(|()| verify_session_expiry(session))
 }
 
 fn verify_authenticated(session: &Session) -> Result<(), ()> {
@@ -126,8 +126,8 @@ fn gen_nonce() -> String {
 	let mut state_bytes = [0u8; 64];
 	rand::thread_rng().fill_bytes(&mut state_bytes);
 
-	let engine =
-		base64::engine::GeneralPurpose::new(&base64::alphabet::URL_SAFE, Default::default());
+	#[allow(clippy::default_trait_access)]
+	let engine = base64::engine::GeneralPurpose::new(&base64::alphabet::URL_SAFE, Default::default());
 
 	engine.encode(state_bytes)
 }
