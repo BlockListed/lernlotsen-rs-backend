@@ -62,6 +62,8 @@ pub async fn authenticate(
 	Ok("success".into())
 }
 
+type StrWebResult = WebResult<&'static str, &'static str>;
+
 pub async fn auth_middleware<B>(
 	State(AppState { db, auth, .. }): State<AppState>,
 	TypedHeader(cookies): TypedHeader<Cookie>,
@@ -70,29 +72,26 @@ pub async fn auth_middleware<B>(
 ) -> Response {
 	let session_id = match extract_session_id(cookies) {
 		Ok(s) => s,
-		Err(e) => return WebResult::<&'static str, &'static str>::Err(e.into()).into_response(),
+		Err(e) => return StrWebResult::Err(e.into()).into_response(),
 	};
 
 	let user_id = match auth.verify(db, session_id).await {
 		Ok(o) => match o {
 			Ok(u) => u,
 			Err(AuthenticatorError::NotAuthorized) => {
-				return WebResult::<&'static str, &'static str>::Err(
+				return StrWebResult::Err(
 					(StatusCode::UNAUTHORIZED, "incomplete or expired session").into(),
 				)
 				.into_response()
 			}
 			Err(AuthenticatorError::InvalidSession) => {
-				return WebResult::<&'static str, &'static str>::Err(
-					(StatusCode::UNAUTHORIZED, "invalid session").into(),
-				)
-				.into_response()
+				return StrWebResult::Err((StatusCode::UNAUTHORIZED, "invalid session").into())
+					.into_response()
 			}
 		},
 		Err(e) => {
 			error!(?e, "server error while processing session");
-			return WebResult::<&'static str, &'static str>::Err(WebError::internal_server_error())
-				.into_response();
+			return StrWebResult::Err(WebError::internal_server_error()).into_response();
 		}
 	};
 
