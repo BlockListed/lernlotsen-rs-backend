@@ -66,11 +66,7 @@ impl Authenticator {
 
 		let token = self
 			.client
-			.authenticate(
-				code,
-				Some(session.nonce.as_str()),
-				Some(&Duration::seconds(300)),
-			)
+			.authenticate(code, Some(session.nonce.as_str()), None)
 			.await?
 			.id_token
 			.unwrap();
@@ -81,7 +77,7 @@ impl Authenticator {
 
 		queries::session::authenticate(db, id, &user_id).await?;
 
-		todo!()
+		Ok(())
 	}
 
 	pub async fn verify(

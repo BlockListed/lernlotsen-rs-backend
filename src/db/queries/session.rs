@@ -3,6 +3,8 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 #[derive(sqlx::Type, PartialEq, Eq)]
+#[sqlx(type_name = "session_status")]
+#[sqlx(rename_all = "lowercase")]
 pub enum SessionStatus {
 	Initiated,
 	Authenticated,
