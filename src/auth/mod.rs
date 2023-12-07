@@ -1,38 +1,27 @@
-use std::{
-	sync::Arc,
-	time::{Duration, Instant},
-};
+use std::sync::Arc;
 
-use tokio::sync::RwLock;
-
-use alcoholic_jwt::{token_kid, validate, Validation, ValidationError, JWKS};
-use tracing::debug;
+use base64::Engine;
+use chrono::{Duration, Utc};
+use openid::{Client, Options};
+use rand::RngCore;
+use sqlx::PgPool;
 use url::Url;
 
-pub struct Authenticator {
-	jwks_url: Url,
-	cached_jwks: RwLock<(JWKS, Instant)>,
-	validations: Vec<Validation>,
-	max_age: Duration,
-}
+use crate::db::queries::{
+	self,
+	session::{Session, SessionStatus},
+};
 
-fn clone_validation(v: &Validation) -> Validation {
-	match v {
-		Validation::Audience(x) => Validation::Audience(x.clone()),
-		Validation::Issuer(x) => Validation::Issuer(x.clone()),
-		Validation::NotExpired => Validation::NotExpired,
-		Validation::SubjectPresent => Validation::SubjectPresent,
-	}
+pub struct Authenticator {
+	client: Client,
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum AuthenticatorError {
-	#[error("JWT is expired")]
-	ClaimsNotVerifiable(Vec<&'static str>),
-	#[error("Invalid JWT")]
-	Invalid(#[from] ValidationError),
-	#[error("Invalid claims")]
-	Claims(&'static str),
+	#[error("invalid session")]
+	InvalidSession,
+	#[error("Not authorized")]
+	NotAuthorized,
 }
 
 #[derive(Clone)]
@@ -45,115 +34,135 @@ impl UserId {
 }
 
 impl Authenticator {
-	pub async fn new(jwks_domain: &str, max_age: Duration, audience: &str) -> Self {
-		let jwks_url = get_jwks_url(jwks_domain);
+	pub async fn new(
+		client_id: String,
+		client_secret: String,
+		redirect: String,
+		issuer: Url,
+	) -> Authenticator {
+		let client = Client::discover(client_id, Some(client_secret), Some(redirect), issuer)
+			.await
+			.unwrap();
 
-		let jwks = (fetch_keys(&jwks_url).await, Instant::now());
+		Authenticator { client }
+	}
 
-		let validations = Vec::from([
-			Validation::Audience(audience.to_string()),
-			Validation::SubjectPresent,
-			Validation::NotExpired,
-		]);
+	pub async fn auth_url(&self, db: PgPool) -> anyhow::Result<(Url, uuid::Uuid)> {
+		let nonce = gen_nonce();
 
-		Self {
-			jwks_url,
-			cached_jwks: RwLock::new(jwks),
-			validations,
-			max_age,
+		let session = queries::session::create(db, &nonce).await?;
+
+		// TODO: investigate if a state parameter is necesary
+		let auth_url = self.client.auth_url(&Options {
+			nonce: Some(nonce),
+			..Default::default()
+		});
+
+		Ok((auth_url, session))
+	}
+
+	pub async fn authenticate(&self, db: PgPool, id: uuid::Uuid, code: &str) -> anyhow::Result<()> {
+		let session = queries::session::get_session(db.clone(), id).await?;
+
+		let token = self
+			.client
+			.authenticate(
+				code,
+				Some(session.nonce.as_str()),
+				Some(&Duration::seconds(300)),
+			)
+			.await?
+			.id_token
+			.unwrap();
+
+		let payload = token.payload().unwrap();
+
+		let user_id = format!("{}:{}", payload.iss, payload.sub);
+
+		queries::session::authenticate(db, id, &user_id).await?;
+
+		todo!()
+	}
+
+	pub async fn verify(
+		&self,
+		db: PgPool,
+		id: uuid::Uuid,
+	) -> anyhow::Result<Result<UserId, AuthenticatorError>> {
+		let Some(session) = queries::session::maybe_get_session(db, id).await? else {
+			return Ok(Err(AuthenticatorError::InvalidSession));
+		};
+
+		if verify_session(&session) != Ok(()) {
+			return Ok(Err(AuthenticatorError::NotAuthorized));
 		}
-	}
 
-	pub async fn force_refetch(&self) {
-		*self.cached_jwks.write().await = (fetch_keys(&self.jwks_url).await, Instant::now());
-	}
+		let user_id = match session.user_id {
+			Some(u) => u,
+			None => return Ok(Err(AuthenticatorError::InvalidSession)),
+		};
 
-	pub async fn refetch(&self) -> bool {
-		if self.cached_jwks.read().await.1.elapsed() < self.max_age {
-			return false;
-		}
-
-		self.force_refetch().await;
-		true
-	}
-
-	pub async fn verify(&self, token: &str) -> Result<UserId, AuthenticatorError> {
-		match self.inner_verify(token).await {
-			Ok(t) => Ok(t),
-			Err(err) => match err {
-				AuthenticatorError::Invalid(e) => match e {
-					ValidationError::InvalidSignature => {
-						if self.refetch().await {
-							self.inner_verify(token).await
-						} else {
-							Err(AuthenticatorError::Invalid(e))
-						}
-					}
-					e => Err(AuthenticatorError::Invalid(e)),
-				},
-				e => Err(e),
-			},
-		}
-	}
-
-	async fn inner_verify(&self, token: &str) -> Result<UserId, AuthenticatorError> {
-		let kid = token_kid(token)?.ok_or(AuthenticatorError::Claims("missing kid"))?;
-
-		let jwt = {
-			let cached_jwks_r = &self.cached_jwks.read().await.0;
-
-			let jwk = cached_jwks_r
-				.find(&kid)
-				.ok_or(AuthenticatorError::Claims("kid doesn't exist"))?;
-
-			match validate(
-				token,
-				jwk,
-				self.validations.iter().map(clone_validation).collect(),
-			) {
-				Ok(validated_jwt) => Ok(validated_jwt),
-				Err(e) => match e {
-					ValidationError::InvalidClaims(invalid) => {
-						Err(AuthenticatorError::ClaimsNotVerifiable(invalid))
-					}
-					e => Err(AuthenticatorError::Invalid(e)),
-				},
-			}
-		}?;
-
-		let claims = jwt
-			.claims
-			.as_object()
-			.ok_or(AuthenticatorError::Claims("jwt claims aren't an object"))?;
-
-		let issuer = claims
-			.get("iss")
-			.and_then(serde_json::Value::as_str)
-			.ok_or(AuthenticatorError::Claims("invalid iss"))?;
-
-		let subject = claims
-			.get("sub")
-			.and_then(serde_json::Value::as_str)
-			.ok_or(AuthenticatorError::Claims("invalid sub"))?;
-
-		Ok(UserId(format!("{issuer}:{subject}").into()))
+		Ok(Ok(UserId(user_id.into())))
 	}
 }
 
-async fn fetch_keys(jwks_url: &Url) -> JWKS {
-	debug!(%jwks_url, "fetching jwt keys");
-
-	reqwest::get(jwks_url.as_str())
-		.await
-		.unwrap()
-		.json()
-		.await
-		.unwrap()
+fn verify_session(session: &Session) -> Result<(), ()> {
+	verify_authenticated(session).and_then(|_| verify_session_expiry(session))
 }
 
-fn get_jwks_url(base: &str) -> Url {
-	Url::options()
-		.base_url(Some(Url::parse(base).unwrap()).as_ref())
-		.parse("/.well-known/jwks.json")
-		.expect("Invalid JWKS url")
+fn verify_authenticated(session: &Session) -> Result<(), ()> {
+	if session.authenticated != SessionStatus::Authenticated {
+		return Err(());
+	}
+
+	Ok(())
+}
+
+fn verify_session_expiry(session: &Session) -> Result<(), ()> {
+	if session.expires.signed_duration_since(Utc::now()) < Duration::zero() {
+		return Err(());
+	}
+
+	Ok(())
+}
+
+fn gen_nonce() -> String {
+	let mut state_bytes = [0u8; 64];
+	rand::thread_rng().fill_bytes(&mut state_bytes);
+
+	let engine =
+		base64::engine::GeneralPurpose::new(&base64::alphabet::URL_SAFE, Default::default());
+
+	engine.encode(state_bytes)
+}
+
+#[cfg(test)]
+mod test {
+	use chrono::Utc;
+
+	use crate::db::queries::session::{Session, SessionStatus};
+
+	use super::verify_session_expiry;
+
+	#[test]
+	fn test_verify_session_expiry() {
+		let valid_session = Session {
+			id: uuid::Uuid::new_v4(),
+			authenticated: SessionStatus::Authenticated,
+			nonce: "".into(),
+			user_id: Some("hello".into()),
+			expires: Utc::now() + chrono::Days::new(7),
+		};
+
+		let invalid_session = Session {
+			id: uuid::Uuid::new_v4(),
+			authenticated: SessionStatus::Authenticated,
+			nonce: "".into(),
+			user_id: Some("hello".into()),
+			expires: Utc::now() - chrono::Days::new(7),
+		};
+
+		assert_eq!(verify_session_expiry(&valid_session), Ok(()));
+		assert_eq!(verify_session_expiry(&invalid_session), Err(()));
+	}
 }

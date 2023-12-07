@@ -32,13 +32,11 @@ pub struct AppState {
 pub async fn run(db: PgPool, cfg: Config, auth: Authenticator) {
 	let hosturl = cfg.hosturl;
 
-	let auth = Arc::new(auth);
-
 	let cfg = Arc::new(cfg);
 
 	let state = AppState {
 		db,
-		auth: auth.clone(),
+		auth: Arc::new(auth),
 		cfg: cfg.clone(),
 	};
 
@@ -54,11 +52,12 @@ pub async fn run(db: PgPool, cfg: Config, auth: Authenticator) {
 		.route("/timeslots/:id/entries/missing", get(entry::missing))
 		.route("/timeslots/:id/entries/:index", delete(entry::delete))
 		.route("/timeslots/information", get(timeslot::information))
-		.nest("/verify", auth::router())
 		.layer(axum::middleware::from_fn_with_state(
-			auth,
+			state.clone(),
 			auth::auth_middleware,
 		))
+		.route("/auth/oidc_callback", get(auth::authenticate))
+		.route("/auth/oidc_login", get(auth::sign_in))
 		.route("/health_check", get(health::health_check))
 		.layer(
 			TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {

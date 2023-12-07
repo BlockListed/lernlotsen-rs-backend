@@ -9,8 +9,6 @@
 // I like using globbed enums
 #![allow(clippy::enum_glob_use)]
 
-use std::time::Duration;
-
 use auth::Authenticator;
 
 use db::get_pool;
@@ -58,9 +56,10 @@ async fn main() {
 	let db = get_pool(&cfg).await;
 
 	let auth = Authenticator::new(
-		cfg.auth.domain.as_str(),
-		Duration::from_secs(1800),
-		&cfg.auth.audience,
+		cfg.auth.client_id.clone(),
+		cfg.auth.client_secret.clone(),
+		cfg.auth.redirect.clone(),
+		cfg.auth.issuer.clone(),
 	)
 	.await;
 
