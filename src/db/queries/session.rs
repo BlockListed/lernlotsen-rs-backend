@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
+// TODO: move these types to model.rs
 #[derive(sqlx::Type, PartialEq, Eq)]
 #[sqlx(type_name = "session_status")]
 #[sqlx(rename_all = "lowercase")]

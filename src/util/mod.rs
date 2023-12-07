@@ -3,12 +3,12 @@ use chrono::{Datelike, IsoWeek, NaiveDate};
 pub mod logging;
 
 // Grabbed from `https://stackoverflow.com/questions/3407012/rounding-up-to-the-nearest-multiple-of-a-number`
-pub fn round_up_to_multiple(n: i64, mutliple: i64) -> i64 {
-	if mutliple == 0 {
+pub fn round_up_to_multiple(n: i64, multiple: i64) -> i64 {
+	if multiple == 0 {
 		return n;
 	};
 
-	let remainder = n.abs() % mutliple;
+	let remainder = n.abs() % multiple;
 	if remainder == 0 {
 		return n;
 	};
@@ -16,7 +16,7 @@ pub fn round_up_to_multiple(n: i64, mutliple: i64) -> i64 {
 	if n < 0 {
 		-(n.abs() - remainder)
 	} else {
-		n + mutliple - remainder
+		n + multiple - remainder
 	}
 }
 
