@@ -17,8 +17,8 @@ pub struct DatabaseConfig {
 
 #[derive(Deserialize)]
 pub struct Authorization {
-	pub client_id: String,
-	pub client_secret: String,
+	pub clientid: String,
+	pub clientsecret: String,
 	pub redirect: String,
 	pub issuer: url::Url,
 }

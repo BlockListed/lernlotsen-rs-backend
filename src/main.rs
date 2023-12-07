@@ -56,8 +56,8 @@ async fn main() {
 	let db = get_pool(&cfg).await;
 
 	let auth = Authenticator::new(
-		cfg.auth.client_id.clone(),
-		cfg.auth.client_secret.clone(),
+		cfg.auth.clientid.clone(),
+		cfg.auth.clientsecret.clone(),
 		cfg.auth.redirect.clone(),
 		cfg.auth.issuer.clone(),
 	)
