@@ -3,6 +3,7 @@ use axum::headers::Cookie;
 use axum::http::Request;
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
+use axum::Extension;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 
@@ -10,7 +11,7 @@ use tracing::error;
 use url::Url;
 
 use crate::api::util::{WebError, WebResult};
-use crate::auth::AuthenticatorError;
+use crate::auth::{AuthenticatorError, UserId};
 
 use super::util::TransposeResult;
 use super::AppState;
@@ -98,6 +99,11 @@ pub async fn auth_middleware<B>(
 	req.extensions_mut().insert(user_id);
 
 	next.run(req).await
+}
+
+// TODO: maybe skip the allocation by accessing the Arc<str> inside the user_id directly
+pub async fn user_id(Extension(user_id): Extension<UserId>) -> WebResult<String, &'static str> {
+	Ok::<_, (StatusCode, &'static str)>(user_id.as_str().to_owned()).transpose_web()
 }
 
 fn extract_session_id(cookies: &Cookie) -> Result<uuid::Uuid, (StatusCode, &'static str)> {

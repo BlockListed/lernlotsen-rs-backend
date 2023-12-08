@@ -52,6 +52,7 @@ pub async fn run(db: PgPool, cfg: Config, auth: Authenticator) {
 		.route("/timeslots/:id/entries/missing", get(entry::missing))
 		.route("/timeslots/:id/entries/:index", delete(entry::delete))
 		.route("/timeslots/information", get(timeslot::information))
+		.route("/auth/user_id", get(auth::user_id))
 		.layer(axum::middleware::from_fn_with_state(
 			state.clone(),
 			auth::auth_middleware,
