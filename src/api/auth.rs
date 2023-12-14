@@ -16,6 +16,12 @@ use crate::auth::{AuthenticatorError, UserId};
 use super::util::TransposeResult;
 use super::AppState;
 
+#[derive(Serialize)]
+pub struct OidcData {
+	auth_url: Url,
+	session_id: uuid::Uuid,
+}
+
 pub async fn sign_in(
 	State(AppState { db, auth, .. }): State<AppState>,
 ) -> WebResult<OidcData, &'static str> {
@@ -37,12 +43,6 @@ pub async fn sign_in(
 #[derive(Deserialize)]
 pub struct OidcCallback {
 	code: String,
-}
-
-#[derive(Serialize)]
-pub struct OidcData {
-	auth_url: Url,
-	session_id: uuid::Uuid,
 }
 
 pub async fn authenticate(
