@@ -7,10 +7,12 @@ use crate::db::model::{EntryState, Student, StudentStatus};
 // TODO optimise this by writing to a single string instead of allocation like 9 bagillion strings
 pub fn format_entry(entry: &EntryState, students: &[Student]) -> String {
 	match entry.clone() {
-		EntryState::Success { students } => {
+		EntryState::Success {
+			students: student_states,
+		} => {
 			let mut status_map: HashMap<StudentStatus, Vec<Student>> = HashMap::new();
 
-			for (student, status) in students {
+			for (student, status) in student_states {
 				match status_map.get_mut(&status) {
 					Some(s) => s.push(student),
 					None => {
@@ -19,9 +21,11 @@ pub fn format_entry(entry: &EntryState, students: &[Student]) -> String {
 				};
 			}
 
+			let all_students = format_students(students);
+
 			let present_students = status_map
 				.get(&StudentStatus::Present)
-				.map_or_else(|| "niemand".to_string(), |s| format_students(s));
+				.map(|s| format_students(s));
 			let pardoned_students = status_map
 				.get(&StudentStatus::Pardoned)
 				.map(|s| format_students(s));
@@ -29,9 +33,11 @@ pub fn format_entry(entry: &EntryState, students: &[Student]) -> String {
 				.get(&StudentStatus::Missing)
 				.map(|s| format_students(s));
 
-			let base = format!(
-				"Unterricht mit {present_students} hat planmäßig und erfolgreich stattgefunden."
-			);
+			let base = if let Some(students) = present_students {
+				format!("Unterricht mit {students} hat planmäßig und erfolgreich stattgefunden.")
+			} else {
+				format!("Unterricht mit {all_students} konnte nicht stattfinden.")
+			};
 
 			let pardoned = if let Some(students) = pardoned_students {
 				format!(" ({students} entschuldigt)")
@@ -40,7 +46,7 @@ pub fn format_entry(entry: &EntryState, students: &[Student]) -> String {
 			};
 
 			let missing = if let Some(students) = missing_students {
-				format!(" ({students} fehlten unentschuldigt)")
+				format!(" ({students} fehlte(n) unentschuldigt)")
 			} else {
 				String::new()
 			};
