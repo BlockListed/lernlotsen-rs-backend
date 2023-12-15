@@ -28,7 +28,7 @@ pub enum StudentStatus {
 }
 
 #[derive(Serialize, Deserialize, Debug, Type)]
-#[sqlx(type_name = "student_status")]
+#[sqlx(type_name = "student_state")]
 pub struct StudentState {
 	pub student: String,
 	pub status: StudentStatus,
