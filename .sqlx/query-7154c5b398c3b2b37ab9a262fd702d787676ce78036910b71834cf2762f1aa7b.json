@@ -1,0 +1,99 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT user_id, index, timeslot_id, state_enum AS \"state_enum: EntryState\", students AS \"students: Vec<StudentState>\", NULL AS \"state: sqlx::types::Json<OldEntryState>\" FROM entries WHERE state_enum IS NOT NULL AND students IS NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "index",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "timeslot_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "state_enum: EntryState",
+        "type_info": {
+          "Custom": {
+            "name": "entry_state",
+            "kind": {
+              "Enum": [
+                "success",
+                "cancelledbystudents",
+                "studentsmissing",
+                "cancelledbytutor",
+                "holidays",
+                "other",
+                "invaliddata"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "students: Vec<StudentState>",
+        "type_info": {
+          "Custom": {
+            "name": "_student_state",
+            "kind": {
+              "Array": {
+                "Custom": {
+                  "name": "student_state",
+                  "kind": {
+                    "Composite": [
+                      [
+                        "student",
+                        "Text"
+                      ],
+                      [
+                        "status",
+                        {
+                          "Custom": {
+                            "name": "student_status",
+                            "kind": {
+                              "Enum": [
+                                "present",
+                                "pardoned",
+                                "missing"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "state: sqlx::types::Json<OldEntryState>",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      null
+    ]
+  },
+  "hash": "7154c5b398c3b2b37ab9a262fd702d787676ce78036910b71834cf2762f1aa7b"
+}

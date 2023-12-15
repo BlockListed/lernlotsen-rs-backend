@@ -1,0 +1,50 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE entries SET students = $3 WHERE timeslot_id = $1 AND index = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        {
+          "Custom": {
+            "name": "_student_state",
+            "kind": {
+              "Array": {
+                "Custom": {
+                  "name": "student_state",
+                  "kind": {
+                    "Composite": [
+                      [
+                        "student",
+                        "Text"
+                      ],
+                      [
+                        "status",
+                        {
+                          "Custom": {
+                            "name": "student_status",
+                            "kind": {
+                              "Enum": [
+                                "present",
+                                "pardoned",
+                                "missing"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b4712c1e804a45a69355e1b53ea629707a149240f4ea5c8647c5d659b77dd4b7"
+}

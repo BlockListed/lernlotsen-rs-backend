@@ -1,0 +1,104 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT user_id, timeslot_id, index, state_enum AS \"state_enum: EntryState\", students AS \"students: Vec<StudentState>\", NULL AS \"state: Json<OldEntryState>\" FROM entries WHERE user_id = $1 AND timeslot_id = $2 AND index >= $3 AND index <= $4",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "timeslot_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "index",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "state_enum: EntryState",
+        "type_info": {
+          "Custom": {
+            "name": "entry_state",
+            "kind": {
+              "Enum": [
+                "success",
+                "cancelledbystudents",
+                "studentsmissing",
+                "cancelledbytutor",
+                "holidays",
+                "other",
+                "invaliddata"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "students: Vec<StudentState>",
+        "type_info": {
+          "Custom": {
+            "name": "_student_state",
+            "kind": {
+              "Array": {
+                "Custom": {
+                  "name": "student_state",
+                  "kind": {
+                    "Composite": [
+                      [
+                        "student",
+                        "Text"
+                      ],
+                      [
+                        "status",
+                        {
+                          "Custom": {
+                            "name": "student_status",
+                            "kind": {
+                              "Enum": [
+                                "present",
+                                "pardoned",
+                                "missing"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "state: Json<OldEntryState>",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      null
+    ]
+  },
+  "hash": "a298d34e01e0e56cdbd44564429b60e5cf3eb10a5fe6cf629ef27cbc6f309c81"
+}

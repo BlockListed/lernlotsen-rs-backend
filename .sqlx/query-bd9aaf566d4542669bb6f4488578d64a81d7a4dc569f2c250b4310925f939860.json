@@ -1,0 +1,68 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO entries (id, user_id, index, timeslot_id, state_enum, students) VALUES ($1, $2, $3, $4, $5, $6)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Varchar",
+        "Int4",
+        "Uuid",
+        {
+          "Custom": {
+            "name": "entry_state",
+            "kind": {
+              "Enum": [
+                "success",
+                "cancelledbystudents",
+                "studentsmissing",
+                "cancelledbytutor",
+                "holidays",
+                "other",
+                "invaliddata"
+              ]
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "_student_state",
+            "kind": {
+              "Array": {
+                "Custom": {
+                  "name": "student_state",
+                  "kind": {
+                    "Composite": [
+                      [
+                        "student",
+                        "Text"
+                      ],
+                      [
+                        "status",
+                        {
+                          "Custom": {
+                            "name": "student_status",
+                            "kind": {
+                              "Enum": [
+                                "present",
+                                "pardoned",
+                                "missing"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bd9aaf566d4542669bb6f4488578d64a81d7a4dc569f2c250b4310925f939860"
+}

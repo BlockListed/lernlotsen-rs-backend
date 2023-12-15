@@ -1,0 +1,99 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT user_id, index, timeslot_id, state as \"state: sqlx::types::Json<OldEntryState>\", state_enum as \"state_enum: EntryState\", students as \"students: Vec<StudentState>\" FROM entries WHERE state IS NOT NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "index",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "timeslot_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "state: sqlx::types::Json<OldEntryState>",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 4,
+        "name": "state_enum: EntryState",
+        "type_info": {
+          "Custom": {
+            "name": "entry_state",
+            "kind": {
+              "Enum": [
+                "success",
+                "cancelledbystudents",
+                "studentsmissing",
+                "cancelledbytutor",
+                "holidays",
+                "other",
+                "invaliddata"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "students: Vec<StudentState>",
+        "type_info": {
+          "Custom": {
+            "name": "_student_state",
+            "kind": {
+              "Array": {
+                "Custom": {
+                  "name": "student_state",
+                  "kind": {
+                    "Composite": [
+                      [
+                        "student",
+                        "Text"
+                      ],
+                      [
+                        "status",
+                        {
+                          "Custom": {
+                            "name": "student_status",
+                            "kind": {
+                              "Enum": [
+                                "present",
+                                "pardoned",
+                                "missing"
+                              ]
+                            }
+                          }
+                        }
+                      ]
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "20c368b95f055a78a6b8ca04923a2058a62ffe737e76b21d00d6d2343c0b27b0"
+}
