@@ -21,14 +21,8 @@ use crate::db::queries::timeslot::get_timeslot_by_id;
 use crate::db::model::{Entry, EntryState, Student, StudentState, WebEntry, WebTimeSlot};
 
 #[derive(Deserialize)]
-pub struct TimeSlotQuery {
-	pub id: Uuid,
-}
-
-#[derive(Deserialize)]
 pub struct EntryQuery {
 	pub id: Uuid,
-	pub index: u32,
 }
 
 pub enum TimeslotQueryError {
@@ -54,7 +48,7 @@ pub struct QueryReturn {
 pub async fn query(
 	u: UserId,
 	db: PgPool,
-	q: TimeSlotQuery,
+	q: EntryQuery,
 ) -> anyhow::Result<Result<Vec<QueryReturn>, TimeslotQueryError>> {
 	let timeslot: WebTimeSlot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await? {
 		Some(x) => x,
@@ -76,6 +70,11 @@ pub async fn query(
 	res.sort_unstable_by(|a, b| b.entry.index.cmp(&a.entry.index));
 
 	Ok(Ok(res))
+}
+
+#[derive(Deserialize)]
+pub struct MissingQuery {
+	pub id: Uuid,
 }
 
 pub enum MissingEntriesError {
@@ -101,7 +100,7 @@ pub struct UnfilledEntry {
 pub async fn missing(
 	u: UserId,
 	db: PgPool,
-	q: TimeSlotQuery,
+	q: MissingQuery,
 ) -> anyhow::Result<Result<Vec<UnfilledEntry>, MissingEntriesError>> {
 	let timeslot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await? {
 		Some(v) => v,
@@ -146,7 +145,7 @@ pub async fn create(
 	u: UserId,
 	db: PgPool,
 	r: CreateEntry,
-	q: TimeSlotQuery,
+	q: MissingQuery,
 ) -> anyhow::Result<Result<(), CreateEntryError>> {
 	let selected_timeslot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await? {
 		Some(x) => x,
@@ -166,9 +165,8 @@ pub async fn create(
 			user_id: u.as_str().to_owned(),
 			index: r.index.try_into()?,
 			timeslot_id: selected_timeslot.id,
-			state: None,
-			state_enum: Some(r.state),
-			students: Some(r.students),
+			state_enum: r.state,
+			students: r.students,
 		},
 		Err(s) => {
 			debug!("request contained invalid students");
@@ -191,6 +189,11 @@ pub async fn create(
 	Ok(Ok(()))
 }
 
+#[derive(Deserialize)]
+pub struct NextQuery {
+	pub id: Uuid,
+}
+
 pub enum NextEntryError {
 	TimeslotNotFound,
 }
@@ -208,7 +211,7 @@ impl Into<WebError<&'static str>> for NextEntryError {
 pub async fn next(
 	u: UserId,
 	db: PgPool,
-	q: TimeSlotQuery,
+	q: NextQuery,
 ) -> anyhow::Result<Result<UnfilledEntry, NextEntryError>> {
 	let ts = match get_timeslot_by_id(db, u, q.id).await? {
 		Some(d) => d,
@@ -223,6 +226,12 @@ pub async fn next(
 		.context("timezone issue")?))
 }
 
+#[derive(Deserialize)]
+pub struct DeleteQuery {
+	pub id: Uuid,
+	pub index: u32,
+}
+
 pub enum DeleteError {}
 
 #[allow(clippy::from_over_into)]
@@ -235,7 +244,7 @@ impl Into<WebError<&'static str>> for DeleteError {
 pub async fn delete(
 	db: PgPool,
 	u: UserId,
-	q: EntryQuery,
+	q: DeleteQuery,
 ) -> anyhow::Result<Result<(), DeleteError>> {
 	delete_entry_by_id(db, u, q.id, q.index.try_into().unwrap()).await?;
 	Ok(Ok(()))

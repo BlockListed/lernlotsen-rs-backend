@@ -113,9 +113,8 @@ pub struct Entry {
 	pub user_id: String,
 	pub index: i32,
 	pub timeslot_id: Uuid,
-	pub state: Option<sqlx::types::Json<OldEntryState>>,
-	pub state_enum: Option<EntryState>,
-	pub students: Option<Vec<StudentState>>,
+	pub state_enum: EntryState,
+	pub students: Vec<StudentState>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -178,8 +177,8 @@ pub fn convert_entry(e: Entry) -> Option<WebEntry> {
 		user_id: e.user_id,
 		index,
 		timeslot_id: e.timeslot_id,
-		state: e.state_enum.unwrap(),
-		students: e.students.unwrap(),
+		state: e.state_enum,
+		students: e.students,
 	})
 }
 

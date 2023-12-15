@@ -15,7 +15,7 @@ use crate::auth::UserId;
 
 pub async fn create(
 	State(AppState { db, .. }): State<AppState>,
-	Path(q): Path<entry::TimeSlotQuery>,
+	Path(q): Path<entry::MissingQuery>,
 	Extension(u): Extension<UserId>,
 	Json(r): Json<entry::CreateEntry>,
 ) -> WebResult<&'static str, Value> {
@@ -32,7 +32,7 @@ pub async fn create(
 
 pub async fn query(
 	State(AppState { db, .. }): State<AppState>,
-	Path(q): Path<entry::TimeSlotQuery>,
+	Path(q): Path<entry::EntryQuery>,
 	Extension(u): Extension<UserId>,
 ) -> WebResult<Vec<entry::QueryReturn>, &'static str> {
 	let data = match entry::query(u.clone(), db, q).await {
@@ -52,7 +52,7 @@ pub async fn query(
 
 pub async fn missing(
 	State(AppState { db, .. }): State<AppState>,
-	Path(q): Path<entry::TimeSlotQuery>,
+	Path(q): Path<entry::MissingQuery>,
 	Extension(u): Extension<UserId>,
 ) -> WebResult<Vec<UnfilledEntry>, &'static str> {
 	match entry::missing(u, db, q).await {
@@ -66,7 +66,7 @@ pub async fn missing(
 
 pub async fn next(
 	State(AppState { db, .. }): State<AppState>,
-	Path(q): Path<entry::TimeSlotQuery>,
+	Path(q): Path<entry::NextQuery>,
 	Extension(u): Extension<UserId>,
 ) -> WebResult<UnfilledEntry, &'static str> {
 	match entry::next(u, db, q).await {
@@ -80,7 +80,7 @@ pub async fn next(
 
 pub async fn delete(
 	State(AppState { db, .. }): State<AppState>,
-	Path(q): Path<entry::EntryQuery>,
+	Path(q): Path<entry::DeleteQuery>,
 	Extension(u): Extension<UserId>,
 ) -> WebResult<&'static str, &'static str> {
 	match entry::delete(db, u, q).await {

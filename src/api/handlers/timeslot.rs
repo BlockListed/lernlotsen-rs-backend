@@ -322,11 +322,11 @@ pub async fn information(u: UserId, db: PgPool) -> anyhow::Result<InformationV3R
 		let db = db.clone();
 		tokio::spawn(async move {
 			let next =
-				handlers::entry::next(u.clone(), db.clone(), handlers::entry::TimeSlotQuery { id });
+				handlers::entry::next(u.clone(), db.clone(), handlers::entry::NextQuery { id });
 			let missing = handlers::entry::missing(
 				u.clone(),
 				db.clone(),
-				handlers::entry::TimeSlotQuery { id },
+				handlers::entry::MissingQuery { id },
 			);
 
 			tokio::join!(next, missing)
