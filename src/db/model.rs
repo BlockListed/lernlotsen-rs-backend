@@ -8,7 +8,7 @@ use chrono::Weekday;
 use chrono_tz::Tz;
 
 use serde::{Deserialize, Serialize};
-use sqlx::types::JsonValue;
+use sqlx::prelude::Type;
 use tracing::error;
 
 use uuid::Uuid;
@@ -18,11 +18,26 @@ pub struct Student {
 	pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Hash, PartialEq, Eq, Clone, Copy, Type)]
+#[sqlx(type_name = "student_status")]
+#[sqlx(rename_all = "lowercase")]
 pub enum StudentStatus {
 	Present,
 	Pardoned,
 	Missing,
+}
+
+#[derive(Serialize, Deserialize, Debug, Type)]
+#[sqlx(type_name = "student_status")]
+pub struct StudentState {
+	pub student: String,
+	pub status: StudentStatus,
+}
+
+impl sqlx::postgres::PgHasArrayType for StudentState {
+	fn array_type_info() -> sqlx::postgres::PgTypeInfo {
+		StudentState::type_info()
+	}
 }
 
 pub enum IntoEnumError {
@@ -67,9 +82,20 @@ pub struct TimeSlot {
 	pub timezone: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "status")]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Type)]
+#[sqlx(type_name = "entry_state")]
+#[sqlx(rename_all = "lowercase")]
 pub enum EntryState {
+	Success,
+	CancelledByStudents,
+	StudentsMissing,
+	CancelledByTutor,
+	Holidays,
+	Other,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum OldEntryState {
 	Success {
 		students: Vec<(Student, StudentStatus)>,
 	},
@@ -81,26 +107,14 @@ pub enum EntryState {
 	InvalidData,
 }
 
-impl From<JsonValue> for EntryState {
-	fn from(value: JsonValue) -> Self {
-		let entry_state = match EntryState::deserialize(value) {
-			Ok(s) => s,
-			Err(e) => {
-				error!(%e, "entry state data in database is corrupt");
-				return Self::InvalidData;
-			}
-		};
-
-		entry_state
-	}
-}
-
 #[derive(Debug)]
 pub struct Entry {
 	pub user_id: String,
 	pub index: i32,
 	pub timeslot_id: Uuid,
-	pub state: sqlx::types::Json<EntryState>,
+	pub state: Option<sqlx::types::Json<OldEntryState>>,
+	pub state_enum: Option<EntryState>,
+	pub students: Option<Vec<StudentState>>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -151,6 +165,7 @@ pub struct WebEntry {
 	pub index: u32,
 	pub timeslot_id: Uuid,
 	pub state: EntryState,
+	pub students: Vec<StudentState>,
 }
 
 pub fn convert_entry(e: Entry) -> Option<WebEntry> {
@@ -166,7 +181,8 @@ pub fn convert_entry(e: Entry) -> Option<WebEntry> {
 		user_id: e.user_id,
 		index,
 		timeslot_id: e.timeslot_id,
-		state: e.state.0,
+		state: e.state_enum.unwrap(),
+		students: e.students.unwrap(),
 	})
 }
 

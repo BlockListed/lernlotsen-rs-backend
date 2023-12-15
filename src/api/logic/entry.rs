@@ -11,27 +11,31 @@ use tracing::{debug, error, trace, warn};
 use crate::api::handlers;
 use crate::api::handlers::entry::UnfilledEntry;
 use crate::auth::UserId;
-use crate::db::model::{EntryState, Student, WebTimeSlot};
+use crate::db::model::{Student, StudentState, WebTimeSlot};
 use crate::db::queries::entry::get_entries_with_index_in;
 
-pub fn verify_state(state: &EntryState, timeslot_students: &[Student]) -> Result<(), Vec<Student>> {
-	let mut invalid_students = Vec::new();
+pub fn verify_state(
+	student_states: &[StudentState],
+	timeslot_students: &[Student],
+) -> Result<(), Vec<Student>> {
+	let mut invalid_students = Vec::with_capacity(timeslot_students.len());
 
-	match state {
-		EntryState::Success { students } => {
-			for (k, _) in students {
-				if !timeslot_students.iter().any(|x| x == k) {
-					invalid_students.push(k.clone());
-				}
-			}
+	if student_states.len() != timeslot_students.len() {
+		return Err(invalid_students);
+	}
 
-			if invalid_students.is_empty() {
-				Ok(())
-			} else {
-				Err(invalid_students)
-			}
+	for StudentState { student, .. } in student_states {
+		if !timeslot_students.iter().any(|x| &x.name == student) {
+			invalid_students.push(Student {
+				name: student.clone(),
+			});
 		}
-		_ => Ok(()),
+	}
+
+	if invalid_students.is_empty() {
+		Ok(())
+	} else {
+		Err(invalid_students)
 	}
 }
 

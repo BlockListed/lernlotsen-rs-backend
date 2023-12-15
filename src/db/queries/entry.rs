@@ -6,14 +6,14 @@ use tracing::error;
 use uuid::Uuid;
 
 use crate::auth::UserId;
-use crate::db::model::{self, Entry, EntryState, WebEntry};
+use crate::db::model::{self, Entry, EntryState, OldEntryState, StudentState, WebEntry};
 
 pub async fn get_entries_by_timeslot_id(
 	db: PgPool,
 	u: UserId,
 	id: uuid::Uuid,
 ) -> anyhow::Result<Vec<WebEntry>> {
-	let entries_db = sqlx::query_as!(Entry, r#"SELECT user_id, index, timeslot_id, state AS "state: Json<EntryState>" FROM entries WHERE timeslot_id = $1 AND user_id = $2"#, id, u.as_str())
+	let entries_db = sqlx::query_as!(Entry, r#"SELECT user_id, index, timeslot_id, state_enum AS "state_enum: EntryState", students AS "students: Vec<StudentState>", NULL AS "state: Json<OldEntryState>" FROM entries WHERE timeslot_id = $1 AND user_id = $2"#, id, u.as_str())
 		.fetch_all(&db)
 		.await?;
 
@@ -31,7 +31,7 @@ pub async fn get_entries_with_index_in(
 	timeslot_id: Uuid,
 	indexes: Vec<i32>,
 ) -> anyhow::Result<Vec<WebEntry>> {
-	let entries_db = sqlx::query_as!(Entry, r#"SELECT user_id, index, timeslot_id, state AS "state: Json<EntryState>" FROM entries WHERE timeslot_id = $1 AND user_id = $2 AND index = ANY($3)"#, timeslot_id, u.as_str(), &indexes[..])
+	let entries_db = sqlx::query_as!(Entry, r#"SELECT user_id, index, timeslot_id, state_enum AS "state_enum: EntryState", students AS "students: Vec<StudentState>", NULL AS "state: Json<OldEntryState>" FROM entries WHERE timeslot_id = $1 AND user_id = $2 AND index = ANY($3)"#, timeslot_id, u.as_str(), &indexes[..])
 		.fetch_all(&db)
 		.await?;
 
@@ -55,12 +55,13 @@ pub async fn insert_entry(db: PgPool, entry: Entry) -> Result<(), InsertEntryErr
 	let index: i32 = entry.index;
 
 	match sqlx::query!(
-		"INSERT INTO entries (id, user_id, index, timeslot_id, state) VALUES ($1, $2, $3, $4, $5)",
+		"INSERT INTO entries (id, user_id, index, timeslot_id, state_enum, students) VALUES ($1, $2, $3, $4, $5, $6)",
 		uuid::Uuid::new_v4(),
 		entry.user_id,
 		index,
 		entry.timeslot_id,
-		entry.state as Json<EntryState>
+		entry.state_enum.unwrap() as EntryState,
+		entry.students.unwrap() as Vec<StudentState>,
 	)
 	.execute(&db)
 	.await
@@ -88,7 +89,7 @@ pub async fn get_entry_by_index_range(
 	id: uuid::Uuid,
 	index_range: Range<i32>,
 ) -> anyhow::Result<Vec<WebEntry>> {
-	let entries_db = sqlx::query_as!(Entry, r#"SELECT user_id, timeslot_id, index, state AS "state: Json<EntryState>" FROM entries WHERE user_id = $1 AND timeslot_id = $2 AND index >= $3 AND index <= $4"#, u.as_str(), id, index_range.start, index_range.end)
+	let entries_db = sqlx::query_as!(Entry, r#"SELECT user_id, timeslot_id, index, state_enum AS "state_enum: EntryState", students AS "students: Vec<StudentState>", NULL AS "state: Json<OldEntryState>" FROM entries WHERE user_id = $1 AND timeslot_id = $2 AND index >= $3 AND index <= $4"#, u.as_str(), id, index_range.start, index_range.end)
 		.fetch_all(&db)
 		.await?;
 

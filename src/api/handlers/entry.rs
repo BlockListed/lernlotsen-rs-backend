@@ -18,7 +18,7 @@ use crate::db::queries::entry::{
 };
 use crate::db::queries::timeslot::get_timeslot_by_id;
 
-use crate::db::model::{Entry, EntryState, Student, WebEntry, WebTimeSlot};
+use crate::db::model::{Entry, EntryState, Student, StudentState, WebEntry, WebTimeSlot};
 
 #[derive(Deserialize)]
 pub struct TimeSlotQuery {
@@ -116,6 +116,7 @@ pub async fn missing(
 #[derive(Deserialize, Debug)]
 pub struct CreateEntry {
 	state: EntryState,
+	students: Vec<StudentState>,
 	index: u32,
 }
 
@@ -160,12 +161,14 @@ pub async fn create(
 		"timeslot user_id is not equal to clients user_id"
 	);
 
-	let entry = match verify_state(&r.state, &selected_timeslot.students) {
+	let entry = match verify_state(&r.students, &selected_timeslot.students) {
 		Ok(()) => Entry {
 			user_id: u.as_str().to_owned(),
 			index: r.index.try_into()?,
 			timeslot_id: selected_timeslot.id,
-			state: sqlx::types::Json(r.state),
+			state: None,
+			state_enum: Some(r.state),
+			students: Some(r.students),
 		},
 		Err(s) => {
 			debug!("request contained invalid students");

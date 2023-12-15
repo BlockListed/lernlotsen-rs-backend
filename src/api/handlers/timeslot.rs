@@ -297,7 +297,7 @@ pub async fn export(
 		writeln!(output, "KW{}", w.week())?;
 		for (e, students) in entries {
 			debug!(ts=%e.timeslot_id, idx=e.index, "exporting entry");
-			writeln!(output, "{}", format_entry(&e.state, students))?;
+			writeln!(output, "{}", format_entry(e.state, &e.students, students))?;
 		}
 	}
 
