@@ -10,7 +10,7 @@ fn seperate_status_map(students: &[StudentState]) -> HashMap<StudentStatus, Vec<
 
 	for StudentState { student, status } in students {
 		if let Some(s) = status_map.get_mut(status) {
-			s.push(student.clone())
+			s.push(student.clone());
 		} else {
 			let mut s = Vec::with_capacity(16);
 
@@ -69,5 +69,5 @@ pub fn format_entry(
 }
 
 fn format_students(students: &[String]) -> String {
-	students.iter().map(|v| v).join(", ")
+	students.iter().join(", ")
 }

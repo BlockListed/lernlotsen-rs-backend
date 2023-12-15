@@ -71,6 +71,8 @@ pub async fn maybe_get_session(db: PgPool, id: Uuid) -> anyhow::Result<Option<Se
 	.await?)
 }
 
+// TODO: run this regularly
+#[allow(dead_code)]
 pub async fn delete_expired(db: PgPool) -> anyhow::Result<()> {
 	sqlx::query!("DELETE FROM sessions WHERE expires < NOW()")
 		.execute(&db)
