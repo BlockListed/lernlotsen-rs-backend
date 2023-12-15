@@ -240,7 +240,7 @@ pub async fn export(
 
 	// BtreeMap, because we need ordering
 	// TODO: Vec<Student> should probably be Arc<[Student]> to save allocations.
-	let mut week_map: BTreeMap<IsoWeek, Vec<(WebEntry, Vec<Student>)>> = BTreeMap::new();
+	let mut week_map: BTreeMap<IsoWeek, Vec<(WebEntry, Vec<String>)>> = BTreeMap::new();
 
 	let mut missing_entry_errors: Option<Vec<(String, uuid::Uuid)>> = None;
 

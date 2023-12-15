@@ -2,34 +2,36 @@ use std::collections::HashMap;
 
 use itertools::Itertools;
 
-use crate::db::model::{EntryState, Student, StudentState, StudentStatus};
+use crate::db::model::{EntryState, StudentState, StudentStatus};
+
+fn seperate_status_map(students: &[StudentState]) -> HashMap<StudentStatus, Vec<String>> {
+	// TODO increase if we add too many StudentStatuses
+	let mut status_map: HashMap<StudentStatus, Vec<String>> = HashMap::with_capacity(16);
+
+	for StudentState { student, status } in students {
+		if let Some(s) = status_map.get_mut(status) {
+			s.push(student.clone())
+		} else {
+			let mut s = Vec::with_capacity(16);
+
+			s.push(student.clone());
+
+			status_map.insert(*status, s);
+		}
+	}
+
+	status_map
+}
 
 // TODO optimise this by writing to a single string instead of allocation like 9 bagillion strings
 pub fn format_entry(
 	state_enum: EntryState,
 	students: &[StudentState],
-	timeslot_students: &[Student],
+	timeslot_students: &[String],
 ) -> String {
-	let mut status_map: HashMap<StudentStatus, Vec<Student>> = HashMap::new();
-
-	for StudentState { student, status } in students {
-		match status_map.get_mut(&status) {
-			Some(s) => s.push(Student {
-				name: student.clone(),
-			}),
-			None => {
-				status_map.insert(
-					*status,
-					[Student {
-						name: student.clone(),
-					}]
-					.into(),
-				);
-			}
-		};
-	}
-
 	let all_students = format_students(timeslot_students);
+
+	let status_map = seperate_status_map(students);
 
 	let present_students = status_map
 		.get(&StudentStatus::Present)
@@ -43,7 +45,7 @@ pub fn format_entry(
 
 	let base =
 			match state_enum {
-				EntryState::Success => format!("Unterricht mit {} hat planmäßig und erfolgreich stattgefunden.", present_students.unwrap()),
+				EntryState::Success => format!("Unterricht mit {} hat planmäßig und erfolgreich stattgefunden.", present_students.as_ref().unwrap_or(&all_students)),
 				EntryState::CancelledByStudents => format!("Unterricht mit {} wurde vom Matrosen abgesagt und nicht nachgeholt.", pardoned_students.as_ref().unwrap()),
 				EntryState::CancelledByTutor => format!("Unterricht mit {all_students} wurde von mir abgesagt und nicht nachgeholt."),
 				EntryState::StudentsMissing => format!("Unterricht mit {all_students} konnte nicht stattfinden. Matrose(n) fehlte(n) unentschuldigt!"),
@@ -66,6 +68,6 @@ pub fn format_entry(
 	format!("{base}{pardoned}{missing}")
 }
 
-fn format_students(students: &[Student]) -> String {
-	students.iter().map(|v| &v.name).join(", ")
+fn format_students(students: &[String]) -> String {
+	students.iter().map(|v| v).join(", ")
 }

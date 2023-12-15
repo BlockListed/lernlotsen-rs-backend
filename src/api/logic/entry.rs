@@ -16,7 +16,7 @@ use crate::db::queries::entry::get_entries_with_index_in;
 
 pub fn verify_state(
 	student_states: &[StudentState],
-	timeslot_students: &[Student],
+	timeslot_students: &[String],
 ) -> Result<(), Vec<Student>> {
 	let mut invalid_students = Vec::with_capacity(timeslot_students.len());
 
@@ -25,7 +25,7 @@ pub fn verify_state(
 	}
 
 	for StudentState { student, .. } in student_states {
-		if !timeslot_students.iter().any(|x| &x.name == student) {
+		if !timeslot_students.iter().any(|x| x == student) {
 			invalid_students.push(Student {
 				name: student.clone(),
 			});

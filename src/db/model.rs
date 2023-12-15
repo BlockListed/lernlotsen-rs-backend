@@ -122,7 +122,7 @@ pub struct WebTimeSlot {
 	pub user_id: String,
 	pub id: Uuid,
 	pub subject: String,
-	pub students: Vec<Student>,
+	pub students: Vec<String>,
 	pub time: Range<NaiveTime>,
 	pub timerange: Range<NaiveDate>,
 	pub weekday: Weekday,
@@ -147,11 +147,7 @@ pub fn convert_ts(ts: TimeSlot) -> Option<WebTimeSlot> {
 		user_id: ts.user_id,
 		id: ts.id,
 		subject: ts.subject,
-		students: ts
-			.students
-			.into_iter()
-			.map(|s| Student { name: s })
-			.collect(),
+		students: ts.students,
 		time,
 		timerange,
 		weekday,
