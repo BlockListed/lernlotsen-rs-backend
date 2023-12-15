@@ -11,17 +11,59 @@ use tracing::{debug, error, trace, warn};
 use crate::api::handlers;
 use crate::api::handlers::entry::UnfilledEntry;
 use crate::auth::UserId;
-use crate::db::model::{Student, StudentState, WebTimeSlot};
+use crate::db::model::{EntryState, Student, StudentState, StudentStatus, WebTimeSlot};
 use crate::db::queries::entry::get_entries_with_index_in;
 
 pub fn verify_state(
+	entry_state: EntryState,
 	student_states: &[StudentState],
 	timeslot_students: &[String],
 ) -> Result<(), Vec<Student>> {
 	let mut invalid_students = Vec::with_capacity(timeslot_students.len());
 
-	if student_states.len() != timeslot_students.len() {
-		return Err(invalid_students);
+	match entry_state {
+		EntryState::Success | EntryState::CancelledByStudents | EntryState::StudentsMissing => {
+			if student_states.len() != timeslot_students.len() {
+				return Err(invalid_students);
+			}
+		}
+		_ => (),
+	}
+
+	let present_count = student_states
+		.iter()
+		.filter(|s| s.status == StudentStatus::Present)
+		.count();
+	let pardoned_count = student_states
+		.iter()
+		.filter(|s| s.status == StudentStatus::Pardoned)
+		.count();
+	let missing_count = student_states
+		.iter()
+		.filter(|s| s.status == StudentStatus::Missing)
+		.count();
+
+	tracing::debug!(
+		?entry_state,
+		present_count,
+		pardoned_count,
+		missing_count,
+		"Calculated amount of students with each status for request"
+	);
+
+	match entry_state {
+		EntryState::Success if present_count == 0 => {
+			return Err(invalid_students);
+		}
+		EntryState::CancelledByStudents if present_count != 0 || pardoned_count == 0 => {
+			return Err(invalid_students);
+		}
+		EntryState::StudentsMissing
+			if present_count != 0 || pardoned_count != 0 || missing_count == 0 =>
+		{
+			return Err(invalid_students);
+		}
+		_ => (),
 	}
 
 	for StudentState { student, .. } in student_states {

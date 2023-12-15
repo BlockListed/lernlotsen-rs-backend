@@ -161,7 +161,7 @@ pub async fn create(
 		"timeslot user_id is not equal to clients user_id"
 	);
 
-	let entry = match verify_state(&r.students, &selected_timeslot.students) {
+	let entry = match verify_state(r.state, &r.students, &selected_timeslot.students) {
 		Ok(()) => Entry {
 			user_id: u.as_str().to_owned(),
 			index: r.index.try_into()?,
