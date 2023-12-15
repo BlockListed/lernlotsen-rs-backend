@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT user_id, index, timeslot_id, state_enum AS \"state_enum: EntryState\", students AS \"students: Vec<StudentState>\", NULL AS \"state: sqlx::types::Json<OldEntryState>\" FROM entries WHERE state_enum IS NOT NULL AND students IS NULL",
+  "query": "SELECT user_id, index, timeslot_id, state_enum AS \"state_enum: EntryState\", students AS \"students: Vec<StudentState>\" FROM entries WHERE timeslot_id = $1 AND user_id = $2 AND index = ANY($3)",
   "describe": {
     "columns": [
       {
@@ -76,24 +76,22 @@
             }
           }
         }
-      },
-      {
-        "ordinal": 5,
-        "name": "state: sqlx::types::Json<OldEntryState>",
-        "type_info": "Text"
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int4Array"
+      ]
     },
     "nullable": [
       false,
       false,
       false,
-      true,
-      true,
-      null
+      false,
+      false
     ]
   },
-  "hash": "7154c5b398c3b2b37ab9a262fd702d787676ce78036910b71834cf2762f1aa7b"
+  "hash": "520e1c4f57d515a52974fba2517a89deea6a6f0ba0c1e88c1fe0f623fc317863"
 }
