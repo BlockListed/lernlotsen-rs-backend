@@ -36,7 +36,7 @@ pub struct StudentState {
 
 impl sqlx::postgres::PgHasArrayType for StudentState {
 	fn array_type_info() -> sqlx::postgres::PgTypeInfo {
-		StudentState::type_info()
+		sqlx::postgres::PgTypeInfo::with_name("_student_state")
 	}
 }
 
