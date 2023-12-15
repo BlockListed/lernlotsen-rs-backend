@@ -95,6 +95,7 @@ pub enum EntryState {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(tag = "status")]
 pub enum OldEntryState {
 	Success {
 		students: Vec<(Student, StudentStatus)>,
