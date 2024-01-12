@@ -160,7 +160,7 @@ pub fn get_time_from_index_and_timeslot(
 }
 
 pub async fn missing_entries(
-	db: PgPool,
+	db: &PgPool,
 	u: UserId,
 	timeslot: WebTimeSlot,
 ) -> anyhow::Result<Vec<handlers::entry::UnfilledEntry>> {
@@ -179,7 +179,7 @@ pub async fn missing_entries(
 		.map(|x| (*x).try_into())
 		.try_collect()?;
 
-	let found_indexes = get_entries_with_index_in(db.clone(), u, timeslot.id, required_indexes)
+	let found_indexes = get_entries_with_index_in(&db, u, timeslot.id, required_indexes)
 		.await?
 		.into_iter()
 		.map(|v| v.index)

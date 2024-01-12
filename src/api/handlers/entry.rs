@@ -50,12 +50,12 @@ pub async fn query(
 	db: PgPool,
 	q: EntryQuery,
 ) -> anyhow::Result<Result<Vec<QueryReturn>, TimeslotQueryError>> {
-	let timeslot: WebTimeSlot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await? {
+	let timeslot: WebTimeSlot = match get_timeslot_by_id(&db, u.clone(), q.id).await? {
 		Some(x) => x,
 		None => return Ok(Err(TimeslotQueryError::TimeslotNotFound)),
 	};
 
-	let mut res: Vec<_> = get_entries_by_timeslot_id(db, u, timeslot.id).await?
+	let mut res: Vec<_> = get_entries_by_timeslot_id(&db, u, timeslot.id).await?
 		.into_iter()
 		.filter_map(|entry| {
 			let Some(timestamp) = get_time_from_index_and_timeslot(&timeslot, entry.index).map(|v| v.fixed_offset()) else {
@@ -102,14 +102,14 @@ pub async fn missing(
 	db: PgPool,
 	q: MissingQuery,
 ) -> anyhow::Result<Result<Vec<UnfilledEntry>, MissingEntriesError>> {
-	let timeslot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await? {
+	let timeslot = match get_timeslot_by_id(&db, u.clone(), q.id).await? {
 		Some(v) => v,
 		None => {
 			return Ok(Err(MissingEntriesError::TimeslotNotFound));
 		}
 	};
 
-	Ok(Ok(missing_entries(db, u, timeslot).await?))
+	Ok(Ok(missing_entries(&db, u, timeslot).await?))
 }
 
 #[derive(Deserialize, Debug)]
@@ -147,7 +147,7 @@ pub async fn create(
 	r: CreateEntry,
 	q: MissingQuery,
 ) -> anyhow::Result<Result<(), CreateEntryError>> {
-	let selected_timeslot = match get_timeslot_by_id(db.clone(), u.clone(), q.id).await? {
+	let selected_timeslot = match get_timeslot_by_id(&db, u.clone(), q.id).await? {
 		Some(x) => x,
 		None => {
 			return Ok(Err(CreateEntryError::TimeslotNotFound));
@@ -174,7 +174,7 @@ pub async fn create(
 		}
 	};
 
-	match insert_entry(db, entry).await {
+	match insert_entry(&db, entry).await {
 		Ok(()) => (),
 		Err(e) => match e {
 			InsertEntryError::Duplicate => {
@@ -213,7 +213,7 @@ pub async fn next(
 	db: PgPool,
 	q: NextQuery,
 ) -> anyhow::Result<Result<UnfilledEntry, NextEntryError>> {
-	let ts = match get_timeslot_by_id(db, u, q.id).await? {
+	let ts = match get_timeslot_by_id(&db, u, q.id).await? {
 		Some(d) => d,
 		None => return Ok(Err(NextEntryError::TimeslotNotFound)),
 	};
@@ -246,6 +246,6 @@ pub async fn delete(
 	u: UserId,
 	q: DeleteQuery,
 ) -> anyhow::Result<Result<(), DeleteError>> {
-	delete_entry_by_id(db, u, q.id, q.index.try_into().unwrap()).await?;
+	delete_entry_by_id(&db, u, q.id, q.index.try_into().unwrap()).await?;
 	Ok(Ok(()))
 }

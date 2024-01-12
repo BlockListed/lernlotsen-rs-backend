@@ -47,7 +47,7 @@ impl Authenticator {
 		Authenticator { client }
 	}
 
-	pub async fn auth_url(&self, db: PgPool) -> anyhow::Result<(Url, uuid::Uuid)> {
+	pub async fn auth_url(&self, db: &PgPool) -> anyhow::Result<(Url, uuid::Uuid)> {
 		let nonce = gen_nonce();
 
 		let session = queries::session::create(db, &nonce).await?;
@@ -61,8 +61,8 @@ impl Authenticator {
 		Ok((auth_url, session))
 	}
 
-	pub async fn authenticate(&self, db: PgPool, id: uuid::Uuid, code: &str) -> anyhow::Result<()> {
-		let session = queries::session::get_session(db.clone(), id).await?;
+	pub async fn authenticate(&self, db: &PgPool, id: uuid::Uuid, code: &str) -> anyhow::Result<()> {
+		let session = queries::session::get_session(db, id).await?;
 
 		let token = self
 			.client
@@ -82,7 +82,7 @@ impl Authenticator {
 
 	pub async fn verify(
 		&self,
-		db: PgPool,
+		db: &PgPool,
 		id: uuid::Uuid,
 	) -> anyhow::Result<Result<UserId, AuthenticatorError>> {
 		let Some(session) = queries::session::maybe_get_session(db, id).await? else {

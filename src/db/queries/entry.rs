@@ -8,12 +8,12 @@ use crate::auth::UserId;
 use crate::db::model::{self, Entry, EntryState, StudentState, WebEntry};
 
 pub async fn get_entries_by_timeslot_id(
-	db: PgPool,
+	db: &PgPool,
 	u: UserId,
 	id: uuid::Uuid,
 ) -> anyhow::Result<Vec<WebEntry>> {
 	let entries_db = sqlx::query_as!(Entry, r#"SELECT user_id, index, timeslot_id, state_enum AS "state_enum: EntryState", students AS "students: Vec<StudentState>" FROM entries WHERE timeslot_id = $1 AND user_id = $2"#, id, u.as_str())
-		.fetch_all(&db)
+		.fetch_all(db)
 		.await?;
 
 	let entries: Vec<WebEntry> = entries_db
@@ -25,13 +25,13 @@ pub async fn get_entries_by_timeslot_id(
 }
 
 pub async fn get_entries_with_index_in(
-	db: PgPool,
+	db: &PgPool,
 	u: UserId,
 	timeslot_id: Uuid,
 	indexes: Vec<i32>,
 ) -> anyhow::Result<Vec<WebEntry>> {
 	let entries_db = sqlx::query_as!(Entry, r#"SELECT user_id, index, timeslot_id, state_enum AS "state_enum: EntryState", students AS "students: Vec<StudentState>" FROM entries WHERE timeslot_id = $1 AND user_id = $2 AND index = ANY($3)"#, timeslot_id, u.as_str(), &indexes[..])
-		.fetch_all(&db)
+		.fetch_all(db)
 		.await?;
 
 	let entries: Vec<WebEntry> = entries_db
@@ -50,7 +50,7 @@ pub enum InsertEntryError {
 	Other(#[from] anyhow::Error),
 }
 
-pub async fn insert_entry(db: PgPool, entry: Entry) -> Result<(), InsertEntryError> {
+pub async fn insert_entry(db: &PgPool, entry: Entry) -> Result<(), InsertEntryError> {
 	let index: i32 = entry.index;
 
 	match sqlx::query!(
@@ -62,7 +62,7 @@ pub async fn insert_entry(db: PgPool, entry: Entry) -> Result<(), InsertEntryErr
 		entry.state_enum as EntryState,
 		entry.students as Vec<StudentState>
 	)
-	.execute(&db)
+	.execute(db)
 	.await
 	{
 		Ok(_) => (),
@@ -83,13 +83,13 @@ pub async fn insert_entry(db: PgPool, entry: Entry) -> Result<(), InsertEntryErr
 }
 
 pub async fn get_entry_by_index_range(
-	db: PgPool,
+	db: &PgPool,
 	u: UserId,
 	id: uuid::Uuid,
 	index_range: Range<i32>,
 ) -> anyhow::Result<Vec<WebEntry>> {
 	let entries_db = sqlx::query_as!(Entry, r#"SELECT user_id, timeslot_id, index, state_enum AS "state_enum: EntryState", students AS "students: Vec<StudentState>" FROM entries WHERE user_id = $1 AND timeslot_id = $2 AND index >= $3 AND index <= $4"#, u.as_str(), id, index_range.start, index_range.end)
-		.fetch_all(&db)
+		.fetch_all(db)
 		.await?;
 
 	let entries: Vec<WebEntry> = entries_db
@@ -101,7 +101,7 @@ pub async fn get_entry_by_index_range(
 }
 
 pub async fn delete_entry_by_id(
-	db: PgPool,
+	db: &PgPool,
 	u: UserId,
 	ts_id: uuid::Uuid,
 	index: i32,
@@ -112,7 +112,7 @@ pub async fn delete_entry_by_id(
 		ts_id,
 		index
 	)
-	.execute(&db)
+	.execute(db)
 	.await?;
 	Ok(())
 }

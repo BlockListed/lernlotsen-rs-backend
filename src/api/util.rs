@@ -89,6 +89,8 @@ impl<E: Serialize> From<(StatusCode, E)> for WebError<E> {
 }
 
 pub mod prelude {
+	#![allow(unused_imports)]
+
 	pub use super::TransposeResult;
 	pub use super::WebError;
 	pub use super::WebResult;

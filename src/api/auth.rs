@@ -25,7 +25,7 @@ pub struct OidcData {
 pub async fn sign_in(
 	State(AppState { db, auth, .. }): State<AppState>,
 ) -> WebResult<OidcData, &'static str> {
-	let (auth_url, session_id) = match auth.auth_url(db).await {
+	let (auth_url, session_id) = match auth.auth_url(&db).await {
 		Ok(d) => d,
 		Err(e) => {
 			error!(?e, "error while handling request");
@@ -52,7 +52,7 @@ pub async fn authenticate(
 ) -> WebResult<&'static str, &'static str> {
 	let session_id = extract_session_id(&cookies)?;
 
-	match auth.authenticate(db, session_id, &q.code).await {
+	match auth.authenticate(&db, session_id, &q.code).await {
 		Ok(()) => (),
 		Err(e) => {
 			error!(?e, "couldn't authenticate user");
@@ -63,7 +63,23 @@ pub async fn authenticate(
 	Ok("success".into())
 }
 
-type StrWebResult = WebResult<&'static str, &'static str>;
+pub enum AuthError {
+	SessionIncompleteOrExpired,
+	SessionInvalid,
+	SessionMissing,
+	SessionIdInvalid
+}
+
+impl From<AuthError> for WebError<&'static str> {
+	fn from(value: AuthError) -> WebError<&'static str> {
+        match value {
+			AuthError::SessionIncompleteOrExpired => (StatusCode::UNAUTHORIZED, "incomplete or expired session").into(),
+			AuthError::SessionInvalid => (StatusCode::UNAUTHORIZED, "invalid session").into(),
+			AuthError::SessionMissing => (StatusCode::UNAUTHORIZED, "session id cookie missing").into(),
+			AuthError::SessionIdInvalid => (StatusCode::BAD_REQUEST, "invalid sessionid").into()
+		}
+    }
+}
 
 pub async fn auth_middleware<B>(
 	State(AppState { db, auth, .. }): State<AppState>,
@@ -73,26 +89,24 @@ pub async fn auth_middleware<B>(
 ) -> Response {
 	let session_id = match extract_session_id(&cookies) {
 		Ok(s) => s,
-		Err(e) => return StrWebResult::Err(e.into()).into_response(),
+		Err(e) => return WebError::<&'static str>::from(e).into_response(),
 	};
 
-	let user_id = match auth.verify(db, session_id).await {
+	let user_id = match auth.verify(&db, session_id).await {
 		Ok(o) => match o {
 			Ok(u) => u,
 			Err(AuthenticatorError::NotAuthorized) => {
-				return StrWebResult::Err(
-					(StatusCode::UNAUTHORIZED, "incomplete or expired session").into(),
-				)
-				.into_response()
+				return WebError::<&'static str>::from(AuthError::SessionIncompleteOrExpired)
+					.into_response()
 			}
 			Err(AuthenticatorError::InvalidSession) => {
-				return StrWebResult::Err((StatusCode::UNAUTHORIZED, "invalid session").into())
+				return WebError::<&'static str>::from(AuthError::SessionInvalid)
 					.into_response()
 			}
 		},
 		Err(e) => {
 			error!(?e, "server error while processing session");
-			return StrWebResult::Err(WebError::internal_server_error()).into_response();
+			return WebError::<&'static str>::internal_server_error().into_response()
 		}
 	};
 
@@ -106,17 +120,17 @@ pub async fn user_id(Extension(user_id): Extension<UserId>) -> WebResult<String,
 	Ok::<_, (StatusCode, &'static str)>(user_id.as_str().to_owned()).transpose_web()
 }
 
-fn extract_session_id(cookies: &Cookie) -> Result<uuid::Uuid, (StatusCode, &'static str)> {
+fn extract_session_id(cookies: &Cookie) -> Result<uuid::Uuid, AuthError> {
 	let raw_session_id = match cookies.get("session_id") {
 		Some(s) => s,
-		None => return Err((StatusCode::UNAUTHORIZED, "missing session_id cookie")),
+		None => return Err(AuthError::SessionMissing),
 	};
 
 	let session_id = match uuid::Uuid::parse_str(raw_session_id) {
 		Ok(s) => s,
 		Err(e) => {
 			error!(?e, "failed to parse session id");
-			return Err((StatusCode::BAD_REQUEST, "session_id is not a valid uuid"));
+			return Err(AuthError::SessionIdInvalid)
 		}
 	};
 

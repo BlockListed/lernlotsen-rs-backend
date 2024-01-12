@@ -41,13 +41,13 @@ pub async fn query(u: UserId, db: PgPool, q: TimeSlotQuery) -> anyhow::Result<Ve
 		Some(id) => {
 			let mut output = Vec::new();
 
-			if let Some(ts) = get_timeslot_by_id(db, u, id).await? {
+			if let Some(ts) = get_timeslot_by_id(&db, u, id).await? {
 				output.push(ts);
 			}
 
 			output
 		}
-		None => get_timeslots(db, u).await?,
+		None => get_timeslots(&db, u).await?,
 	};
 
 	Ok(res)
@@ -127,7 +127,7 @@ pub async fn create(
 		timezone: r.timezone.name().to_string(),
 	};
 
-	insert_timeslot(db, ts).await?;
+	insert_timeslot(&db, ts).await?;
 
 	Ok(Ok(id))
 }
@@ -138,7 +138,7 @@ pub struct DeleteRequest {
 }
 
 pub async fn delete(u: UserId, db: PgPool, r: DeleteRequest) -> anyhow::Result<()> {
-	delete_timeslot_by_id(db, u, r.id).await
+	delete_timeslot_by_id(&db, u, r.id).await
 }
 
 #[derive(Deserialize)]
@@ -193,7 +193,7 @@ pub async fn export(
 		return Ok(Err(ExportError::InvalidWeekYear));
 	};
 
-	let mut user_timeslots = get_timeslots(db.clone(), u.clone()).await?;
+	let mut user_timeslots = get_timeslots(&db, u.clone()).await?;
 
 	// Make sure we list timeslots in order in export
 	user_timeslots.sort_by(|a, b| {
@@ -221,10 +221,11 @@ pub async fn export(
 				let expected_entry_count = r.end - r.start + 1;
 
 				let r_task = r.start.try_into()?..r.end.try_into()?;
-				timeslot_handles.push(tokio::spawn(
-					get_entry_by_index_range(db_task, u_task, i.1.id, r_task)
-						.map(move |res| res.map(|e| (e, i.1, expected_entry_count))),
-				));
+				timeslot_handles.push(tokio::spawn(async move {
+					get_entry_by_index_range(&db_task, u_task, i.1.id, r_task)
+						.map(move |res| res.map(|e| (e, i.1, expected_entry_count)))
+						.await
+				}));
 			}
 			None => {
 				warn!(ts=%i.1.id, ?start, ?end, "timerange invalid for timeslot");

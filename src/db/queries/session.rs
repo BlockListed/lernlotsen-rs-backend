@@ -19,7 +19,7 @@ pub struct Session {
 	pub expires: DateTime<Utc>,
 }
 
-pub async fn create(db: PgPool, nonce: &str) -> anyhow::Result<Uuid> {
+pub async fn create(db: &PgPool, nonce: &str) -> anyhow::Result<Uuid> {
 	let id = Uuid::new_v4();
 	let expires = Utc::now().checked_add_days(chrono::Days::new(7)).unwrap();
 	let authenticated = SessionStatus::Initiated;
@@ -31,13 +31,13 @@ pub async fn create(db: PgPool, nonce: &str) -> anyhow::Result<Uuid> {
 		nonce,
 		expires
 	)
-	.execute(&db)
+	.execute(db)
 	.await?;
 
 	Ok(id)
 }
 
-pub async fn authenticate(db: PgPool, id: Uuid, user_id: &str) -> anyhow::Result<()> {
+pub async fn authenticate(db: &PgPool, id: Uuid, user_id: &str) -> anyhow::Result<()> {
 	let authenticated = SessionStatus::Authenticated;
 	sqlx::query!(
 		"UPDATE sessions SET authenticated = $2, user_id = $3 WHERE id = $1",
@@ -45,37 +45,37 @@ pub async fn authenticate(db: PgPool, id: Uuid, user_id: &str) -> anyhow::Result
 		authenticated as SessionStatus,
 		user_id
 	)
-	.execute(&db)
+	.execute(db)
 	.await?;
 
 	Ok(())
 }
 
-pub async fn get_session(db: PgPool, id: Uuid) -> anyhow::Result<Session> {
+pub async fn get_session(db: &PgPool, id: Uuid) -> anyhow::Result<Session> {
 	Ok(sqlx::query_as!(
 		Session,
 		r#"SELECT id, authenticated as "authenticated: SessionStatus", nonce, user_id, expires FROM sessions WHERE id = $1"#,
 		id
 	)
-	.fetch_one(&db)
+	.fetch_one(db)
 	.await?)
 }
 
-pub async fn maybe_get_session(db: PgPool, id: Uuid) -> anyhow::Result<Option<Session>> {
+pub async fn maybe_get_session(db: &PgPool, id: Uuid) -> anyhow::Result<Option<Session>> {
 	Ok(sqlx::query_as!(
 		Session,
 		r#"SELECT id, authenticated as "authenticated: SessionStatus", nonce, user_id, expires FROM sessions WHERE id = $1"#,
 		id
 	)
-	.fetch_optional(&db)
+	.fetch_optional(db)
 	.await?)
 }
 
 // TODO: run this regularly
 #[allow(dead_code)]
-pub async fn delete_expired(db: PgPool) -> anyhow::Result<()> {
+pub async fn delete_expired(db: &PgPool) -> anyhow::Result<()> {
 	sqlx::query!("DELETE FROM sessions WHERE expires < NOW()")
-		.execute(&db)
+		.execute(db)
 		.await?;
 
 	Ok(())
