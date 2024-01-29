@@ -88,6 +88,38 @@ impl<E: Serialize> From<(StatusCode, E)> for WebError<E> {
 	}
 }
 
+impl<E> From<anyhow::Error> for WebError<E>
+where
+	E: From<&'static str> + Serialize,
+{
+	fn from(e: anyhow::Error) -> Self {
+		tracing::error!(%e, "error while handling request");
+		WebError::internal_server_error()
+	}
+}
+
+// This shit is actually so annoying it needs it's own implementation
+impl<E> From<std::num::TryFromIntError> for WebError<E>
+where
+	E: From<&'static str> + Serialize,
+{
+	fn from(e: std::num::TryFromIntError) -> Self {
+		let anyhow_err: anyhow::Error = e.into();
+		anyhow_err.into()
+	}
+}
+
+impl<E> From<std::fmt::Error> for WebError<E>
+where
+	E: From<&'static str> + Serialize
+{
+	fn from(e: std::fmt::Error) -> Self {
+		let anyhow_err: anyhow::Error = e.into();
+		anyhow_err.into()
+	}
+}
+
+
 pub mod prelude {
 	#![allow(unused_imports)]
 
