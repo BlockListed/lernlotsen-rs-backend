@@ -7,7 +7,7 @@ use crate::{
 	db::model::{self, DbTime, DbTimerange, TimeSlot, WebTimeSlot},
 };
 
-pub async fn get_timeslots(db: &PgPool, u: UserId) -> anyhow::Result<Vec<WebTimeSlot>> {
+pub async fn get_timeslots(db: &PgPool, u: &UserId) -> anyhow::Result<Vec<WebTimeSlot>> {
 	let timeslots_db: Vec<TimeSlot> = sqlx::query_as!(TimeSlot, r#"SELECT id, user_id, subject, students, time AS "time: DbTime", timerange AS "timerange: DbTimerange", timezone FROM timeslots WHERE user_id = $1"#, u.as_str())
 		.fetch_all(db)
 		.await?;
@@ -22,7 +22,7 @@ pub async fn get_timeslots(db: &PgPool, u: UserId) -> anyhow::Result<Vec<WebTime
 
 pub async fn get_timeslot_by_id(
 	db: &PgPool,
-	u: UserId,
+	u: &UserId,
 	id: Uuid,
 ) -> anyhow::Result<Option<WebTimeSlot>> {
 	let timeslot_db: TimeSlot = match sqlx::query_as!(TimeSlot, r#"SELECT user_id, id, subject, students, time AS "time: DbTime", timerange AS "timerange: DbTimerange", timezone FROM timeslots WHERE user_id = $1 AND id = $2"#, u.as_str(), id)
@@ -44,14 +44,15 @@ pub async fn insert_timeslot(db: &PgPool, ts: TimeSlot) -> anyhow::Result<()> {
 	Ok(())
 }
 
-pub async fn delete_timeslot_by_id(db: &PgPool, u: UserId, id: Uuid) -> anyhow::Result<()> {
-	sqlx::query!(
+pub async fn delete_timeslot_by_id(db: &PgPool, u: &UserId, id: Uuid) -> anyhow::Result<u64> {
+	let res = sqlx::query!(
 		"DELETE FROM timeslots WHERE user_id = $1 AND id = $2",
 		u.as_str(),
 		id
 	)
 	.execute(db)
-	.await?;
+	.await?
+	.rows_affected();
 
-	Ok(())
+	Ok(res)
 }
