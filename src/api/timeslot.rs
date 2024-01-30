@@ -358,7 +358,6 @@ pub struct InformationV3ResponseItem {
 
 pub type InformationV3Response = Vec<InformationV3ResponseItem>;
 
-// TODO: finish this shit after I get the entry handlers switched over
 pub async fn information(
 	State(AppState { db, .. }): State<AppState>,
 	Extension(u): Extension<UserId>,
@@ -377,7 +376,7 @@ pub async fn information(
 		"length of next missing not equal to timeslots"
 	);
 
-	let res: anyhow::Result<Vec<_>> = timeslots
+	let mut res: Vec<_> = timeslots
 		.into_iter()
 		.zip(next_missing)
 		.map(|(ts, (next_res, missing_res))| {
@@ -387,9 +386,7 @@ pub async fn information(
 
 			anyhow::Result::<_>::Ok(InformationV3ResponseItem { ts, next, missing })
 		})
-		.try_collect();
-
-	let mut res = res?;
+		.try_collect()?;
 
 	// I know this is horrible.
 	res.sort_unstable_by_key(|v| v.next.timestamp);
