@@ -22,7 +22,7 @@ impl From<HealthCheckError> for WebError<&'static str> {
 }
 
 pub async fn database_test(db: &PgPool) -> Result<(), ()> {
-	if let Err(e) = sqlx::query!("SELECT (1) as test").fetch_optional(&db).await {
+	if let Err(e) = sqlx::query!("SELECT (1) as test").fetch_optional(db).await {
 		error!(err=%e, "health check error");
 		return Err(());
 	}
