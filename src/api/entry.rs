@@ -194,7 +194,7 @@ pub async fn missing(
 		None => return Err(MissingEntriesError::TimeslotNotFound)?,
 	};
 
-	Ok(missing_entries(&db, &u, timeslot).await?.into())
+	Ok(missing_entries(&db, &u, &timeslot).await?.into())
 }
 
 #[derive(Deserialize)]
@@ -243,7 +243,7 @@ pub struct DeleteQuery {
 pub enum DeleteError {}
 
 impl From<DeleteError> for WebError<&'static str> {
-	fn from(v: DeleteError) -> WebError<&'static str> {
+	fn from(_: DeleteError) -> WebError<&'static str> {
 		(StatusCode::INTERNAL_SERVER_ERROR, "unknown server error").into()
 	}
 }

@@ -63,22 +63,27 @@ pub async fn authenticate(
 	Ok("success".into())
 }
 
+#[allow(clippy::enum_variant_names)]
 pub enum AuthError {
 	SessionIncompleteOrExpired,
 	SessionInvalid,
 	SessionMissing,
-	SessionIdInvalid
+	SessionIdInvalid,
 }
 
 impl From<AuthError> for WebError<&'static str> {
 	fn from(value: AuthError) -> WebError<&'static str> {
-        match value {
-			AuthError::SessionIncompleteOrExpired => (StatusCode::UNAUTHORIZED, "incomplete or expired session").into(),
+		match value {
+			AuthError::SessionIncompleteOrExpired => {
+				(StatusCode::UNAUTHORIZED, "incomplete or expired session").into()
+			}
 			AuthError::SessionInvalid => (StatusCode::UNAUTHORIZED, "invalid session").into(),
-			AuthError::SessionMissing => (StatusCode::UNAUTHORIZED, "session id cookie missing").into(),
-			AuthError::SessionIdInvalid => (StatusCode::BAD_REQUEST, "invalid sessionid").into()
+			AuthError::SessionMissing => {
+				(StatusCode::UNAUTHORIZED, "session id cookie missing").into()
+			}
+			AuthError::SessionIdInvalid => (StatusCode::BAD_REQUEST, "invalid sessionid").into(),
 		}
-    }
+	}
 }
 
 pub async fn auth_middleware<B>(
@@ -100,13 +105,12 @@ pub async fn auth_middleware<B>(
 					.into_response()
 			}
 			Err(AuthenticatorError::InvalidSession) => {
-				return WebError::<&'static str>::from(AuthError::SessionInvalid)
-					.into_response()
+				return WebError::<&'static str>::from(AuthError::SessionInvalid).into_response()
 			}
 		},
 		Err(e) => {
 			error!(?e, "server error while processing session");
-			return WebError::<&'static str>::internal_server_error().into_response()
+			return WebError::<&'static str>::internal_server_error().into_response();
 		}
 	};
 
@@ -130,7 +134,7 @@ fn extract_session_id(cookies: &Cookie) -> Result<uuid::Uuid, AuthError> {
 		Ok(s) => s,
 		Err(e) => {
 			error!(?e, "failed to parse session id");
-			return Err(AuthError::SessionIdInvalid)
+			return Err(AuthError::SessionIdInvalid);
 		}
 	};
 

@@ -165,7 +165,7 @@ pub async fn missing_entries(
 	u: &UserId,
 	timeslot: &WebTimeSlot,
 ) -> anyhow::Result<Vec<UnfilledEntry>> {
-	let mut required_entries = get_entries(&timeslot)
+	let mut required_entries = get_entries(timeslot)
 		.enumerate()
 		.collect::<HashMap<_, _>>();
 
@@ -180,7 +180,7 @@ pub async fn missing_entries(
 		.map(|x| (*x).try_into())
 		.try_collect()?;
 
-	let found_indexes = get_entries_with_index_in(&db, &u, timeslot.id, required_indexes)
+	let found_indexes = get_entries_with_index_in(db, u, timeslot.id, required_indexes)
 		.await?
 		.into_iter()
 		.map(|v| v.index)

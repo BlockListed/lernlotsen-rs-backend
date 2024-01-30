@@ -117,7 +117,7 @@ pub struct Entry {
 	pub students: Vec<StudentState>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct WebTimeSlot {
 	pub user_id: String,
 	pub id: Uuid,

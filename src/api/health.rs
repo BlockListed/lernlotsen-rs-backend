@@ -5,8 +5,8 @@ use sqlx::PgPool;
 
 use tracing::error;
 
-use crate::api::AppState;
 use crate::api::util::prelude::*;
+use crate::api::AppState;
 
 pub enum HealthCheckError {
 	DatabaseUnavailable,

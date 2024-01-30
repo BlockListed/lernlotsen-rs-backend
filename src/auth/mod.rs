@@ -61,7 +61,12 @@ impl Authenticator {
 		Ok((auth_url, session))
 	}
 
-	pub async fn authenticate(&self, db: &PgPool, id: uuid::Uuid, code: &str) -> anyhow::Result<()> {
+	pub async fn authenticate(
+		&self,
+		db: &PgPool,
+		id: uuid::Uuid,
+		code: &str,
+	) -> anyhow::Result<()> {
 		let session = queries::session::get_session(db, id).await?;
 
 		let token = self

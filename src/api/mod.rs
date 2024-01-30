@@ -15,7 +15,6 @@ use crate::configuration::Config;
 
 mod auth;
 mod entry;
-mod handlers;
 mod health;
 mod logic;
 mod timeslot;

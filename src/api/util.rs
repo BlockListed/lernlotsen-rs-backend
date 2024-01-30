@@ -111,14 +111,13 @@ where
 
 impl<E> From<std::fmt::Error> for WebError<E>
 where
-	E: From<&'static str> + Serialize
+	E: From<&'static str> + Serialize,
 {
 	fn from(e: std::fmt::Error) -> Self {
 		let anyhow_err: anyhow::Error = e.into();
 		anyhow_err.into()
 	}
 }
-
 
 pub mod prelude {
 	#![allow(unused_imports)]
