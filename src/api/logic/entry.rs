@@ -8,7 +8,6 @@ use itertools::Itertools;
 use sqlx::PgPool;
 use tracing::{debug, error, trace, warn};
 
-use crate::api::handlers;
 use crate::api::handlers::entry::UnfilledEntry;
 use crate::auth::UserId;
 use crate::db::model::{EntryState, Student, StudentState, StudentStatus, WebTimeSlot};
@@ -161,9 +160,9 @@ pub fn get_time_from_index_and_timeslot(
 
 pub async fn missing_entries(
 	db: &PgPool,
-	u: UserId,
+	u: &UserId,
 	timeslot: WebTimeSlot,
-) -> anyhow::Result<Vec<handlers::entry::UnfilledEntry>> {
+) -> anyhow::Result<Vec<UnfilledEntry>> {
 	let mut required_entries = get_entries(&timeslot)
 		.enumerate()
 		.collect::<HashMap<_, _>>();
@@ -179,7 +178,7 @@ pub async fn missing_entries(
 		.map(|x| (*x).try_into())
 		.try_collect()?;
 
-	let found_indexes = get_entries_with_index_in(&db, u, timeslot.id, required_indexes)
+	let found_indexes = get_entries_with_index_in(&db, &u, timeslot.id, required_indexes)
 		.await?
 		.into_iter()
 		.map(|v| v.index)
