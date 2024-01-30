@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use anyhow::Context;
+
 use chrono::{DateTime, TimeZone, Utc};
 use chrono::{Duration, NaiveDate};
 use chrono_tz::Tz;
@@ -8,7 +10,7 @@ use itertools::Itertools;
 use sqlx::PgPool;
 use tracing::{debug, error, trace, warn};
 
-use crate::api::handlers::entry::UnfilledEntry;
+use crate::api::entry::UnfilledEntry;
 use crate::auth::UserId;
 use crate::db::model::{EntryState, Student, StudentState, StudentStatus, WebTimeSlot};
 use crate::db::queries::entry::get_entries_with_index_in;
@@ -161,7 +163,7 @@ pub fn get_time_from_index_and_timeslot(
 pub async fn missing_entries(
 	db: &PgPool,
 	u: &UserId,
-	timeslot: WebTimeSlot,
+	timeslot: &WebTimeSlot,
 ) -> anyhow::Result<Vec<UnfilledEntry>> {
 	let mut required_entries = get_entries(&timeslot)
 		.enumerate()
@@ -241,4 +243,13 @@ pub fn next_entry_date_timeslot(ts: &WebTimeSlot) -> Option<(u32, DateTime<chron
 
 	// This is fine, since we check for a negative index.
 	Some((index, next_date))
+}
+
+pub fn next_entry_timeslot(ts: &WebTimeSlot) -> anyhow::Result<UnfilledEntry> {
+	next_entry_date_timeslot(ts)
+		.map(|(index, timestamp)| UnfilledEntry {
+			index,
+			timestamp: timestamp.fixed_offset(),
+		})
+		.context("timezone issue")
 }
