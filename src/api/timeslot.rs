@@ -4,30 +4,40 @@ use std::ops::Range;
 
 use anyhow::Context;
 
-use axum::extract::{Json, Query, State, Path};
+use axum::extract::{Json, Path, Query, State};
 use axum::http::StatusCode;
 use axum::Extension;
 
-use chrono::{Weekday, NaiveTime, NaiveDate, Datelike, IsoWeek};
+use chrono::{Datelike, IsoWeek, NaiveDate, NaiveTime, Weekday};
 use chrono_tz::Tz;
 
-use futures_util::{FutureExt, stream::{FuturesOrdered, StreamExt}};
+use futures_util::{
+	stream::{FuturesOrdered, StreamExt},
+	FutureExt,
+};
+
+use itertools::Itertools;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tracing::{debug, error, warn};
+use tracing::{debug, warn};
 use uuid::Uuid;
 
-use crate::api::logic::timeslot::get_index_range_timeslot;
-use crate::api::logic::entry::get_time_from_index_and_timeslot;
-use crate::api::logic::export::format_entry;
+use crate::api::entry::UnfilledEntry;
 use crate::api::logic::check_object_belong_to_userid;
+use crate::api::logic::entry::{
+	get_time_from_index_and_timeslot, missing_entries, next_entry_timeslot,
+};
+use crate::api::logic::export::format_entry;
+use crate::api::logic::timeslot::get_index_range_timeslot;
 use crate::api::util::{prelude::*, WebError};
 use crate::auth::UserId;
 
-use crate::db::model::{TimeSlot, WebTimeSlot, Student, DbTime, DbTimerange, HasUserId, WebEntry};
-use crate::db::queries::timeslot::{delete_timeslot_by_id, get_timeslots, get_timeslot_by_id, insert_timeslot};
+use crate::db::model::{DbTime, DbTimerange, HasUserId, Student, TimeSlot, WebEntry, WebTimeSlot};
 use crate::db::queries::entry::get_entry_by_index_range;
+use crate::db::queries::timeslot::{
+	delete_timeslot_by_id, get_timeslot_by_id, get_timeslots, insert_timeslot,
+};
 
 use crate::util::create_isoweek;
 
@@ -156,10 +166,12 @@ pub enum DeleteError {
 
 impl From<DeleteError> for WebError<&'static str> {
 	fn from(v: DeleteError) -> Self {
-        match v {
-			DeleteError::NotFound => (StatusCode::NOT_FOUND, "couldn't find timeslot to delete").into(),
+		match v {
+			DeleteError::NotFound => {
+				(StatusCode::NOT_FOUND, "couldn't find timeslot to delete").into()
+			}
 		}
-    }
+	}
 }
 
 pub async fn delete(
@@ -255,7 +267,7 @@ pub async fn export(
 
 				let r_task: Range<i32> = r.start.try_into()?..r.end.try_into()?;
 				timeslot_handles.push(tokio::spawn(async move {
-					get_entry_by_index_range(&db_task, u_task, i.1.id, r_task)
+					get_entry_by_index_range(&db_task, &u_task, i.1.id, r_task)
 						.map(move |res| res.map(|e| (e, i.1, expected_entry_count)))
 						.await
 				}));
@@ -348,30 +360,16 @@ pub type InformationV3Response = Vec<InformationV3ResponseItem>;
 
 // TODO: finish this shit after I get the entry handlers switched over
 pub async fn information(
-	State(state): State<AppState>,
+	State(AppState { db, .. }): State<AppState>,
 	Extension(u): Extension<UserId>,
 ) -> WebResult<InformationV3Response, &'static str> {
-	let db = state.db.clone();
+	let timeslots = get_timeslots(&db, &u).await?;
 
-	let timeslots = query(State(state.clone()), Extension(u.clone()), Query(TimeSlotQuery { id: None })).await?;
-
-	let next_missing = futures_util::future::join_all(timeslots.msg.iter().map(|ts| {
-		let id = ts.id;
-		let u = u.clone();
-		let db = db.clone();
-		tokio::spawn(async move {
-			let next =
-				handlers::entry::next(u.clone(), db.clone(), handlers::entry::NextQuery { id });
-			let missing = handlers::entry::missing(
-				u.clone(),
-				db.clone(),
-				handlers::entry::MissingQuery { id },
-			);
-
-			tokio::join!(next, missing)
-		})
-		.map(Result::unwrap)
-	}))
+	let next_missing = futures_util::future::join_all(
+		timeslots
+			.iter()
+			.map(|ts| missing_entries(&db, &u, ts).map(move |m| (next_entry_timeslot(ts), m))),
+	)
 	.await;
 
 	assert!(
@@ -381,25 +379,11 @@ pub async fn information(
 
 	let res: anyhow::Result<Vec<_>> = timeslots
 		.into_iter()
-		.zip(next_missing.into_iter())
+		.zip(next_missing)
 		.map(|(ts, (next_res, missing_res))| {
-			let next = next_res.and_then(|v| match v {
-				Ok(v) => Ok(v),
-				Err(e) => match e {
-					handlers::entry::NextEntryError::TimeslotNotFound => {
-						Err(anyhow::anyhow!("Timeslot went missing during handler call"))
-					}
-				},
-			})?;
+			let next = next_res?;
 
-			let missing = missing_res.and_then(|v| match v {
-				Ok(v) => Ok(v.len().try_into()?),
-				Err(e) => match e {
-					handlers::entry::MissingEntriesError::TimeslotNotFound => {
-						Err(anyhow::anyhow!("Timeslot went missing during handler call"))
-					}
-				},
-			})?;
+			let missing = missing_res?.len().try_into()?;
 
 			anyhow::Result::<_>::Ok(InformationV3ResponseItem { ts, next, missing })
 		})
@@ -410,5 +394,5 @@ pub async fn information(
 	// I know this is horrible.
 	res.sort_unstable_by_key(|v| v.next.timestamp);
 
-	Ok(res)
+	Ok(res.into())
 }
