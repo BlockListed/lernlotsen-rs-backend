@@ -1,5 +1,3 @@
-use anyhow::Context;
-
 use axum::extract::{Json, Path, State};
 use axum::http::StatusCode;
 use axum::Extension;
@@ -14,9 +12,7 @@ use uuid::Uuid;
 use tracing::{debug, error};
 
 use crate::api::logic::check_object_belong_to_userid;
-use crate::api::logic::entry::{
-	get_time_from_index_and_timeslot, missing_entries, next_entry_date_timeslot, verify_state,
-};
+use crate::api::logic::entry::{get_time_from_index_and_timeslot, missing_entries, verify_state};
 use crate::api::util::prelude::*;
 use crate::api::AppState;
 use crate::auth::UserId;
@@ -25,6 +21,8 @@ use crate::db::queries::entry::{
 	delete_entry_by_id, get_entries_by_timeslot_id, insert_entry, InsertEntryError,
 };
 use crate::db::queries::timeslot::get_timeslot_by_id;
+
+use super::logic::entry::next_entry_timeslot;
 
 #[derive(Deserialize, Debug)]
 pub struct CreateEntry {
@@ -225,13 +223,7 @@ pub async fn next(
 		None => return Err(NextEntryError::TimeslotNotFound)?,
 	};
 
-	Ok(next_entry_date_timeslot(&ts)
-		.map(|(index, d)| UnfilledEntry {
-			index,
-			timestamp: d.fixed_offset(),
-		})
-		.context("timezone issue")?
-		.into())
+	Ok(next_entry_timeslot(&ts)?.into())
 }
 
 #[derive(Deserialize)]

@@ -165,9 +165,7 @@ pub async fn missing_entries(
 	u: &UserId,
 	timeslot: &WebTimeSlot,
 ) -> anyhow::Result<Vec<UnfilledEntry>> {
-	let mut required_entries = get_entries(timeslot)
-		.enumerate()
-		.collect::<HashMap<_, _>>();
+	let mut required_entries = get_entries(timeslot).enumerate().collect::<HashMap<_, _>>();
 
 	debug!(
 		?required_entries,
