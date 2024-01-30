@@ -355,7 +355,7 @@ pub async fn information(
 
 	let timeslots = query(State(state.clone()), Extension(u.clone()), Query(TimeSlotQuery { id: None })).await?;
 
-	let next_missing = futures_util::future::join_all(timeslots.iter().map(|ts| {
+	let next_missing = futures_util::future::join_all(timeslots.msg.iter().map(|ts| {
 		let id = ts.id;
 		let u = u.clone();
 		let db = db.clone();
