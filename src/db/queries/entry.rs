@@ -9,7 +9,7 @@ use crate::db::model::{self, Entry, EntryState, StudentState, WebEntry};
 
 pub async fn get_entries_by_timeslot_id(
 	db: &PgPool,
-	u: UserId,
+	u: &UserId,
 	id: uuid::Uuid,
 ) -> anyhow::Result<Vec<WebEntry>> {
 	let entries_db = sqlx::query_as!(Entry, r#"SELECT user_id, index, timeslot_id, state_enum AS "state_enum: EntryState", students AS "students: Vec<StudentState>" FROM entries WHERE timeslot_id = $1 AND user_id = $2"#, id, u.as_str())
@@ -26,7 +26,7 @@ pub async fn get_entries_by_timeslot_id(
 
 pub async fn get_entries_with_index_in(
 	db: &PgPool,
-	u: UserId,
+	u: &UserId,
 	timeslot_id: Uuid,
 	indexes: Vec<i32>,
 ) -> anyhow::Result<Vec<WebEntry>> {
@@ -84,7 +84,7 @@ pub async fn insert_entry(db: &PgPool, entry: Entry) -> Result<(), InsertEntryEr
 
 pub async fn get_entry_by_index_range(
 	db: &PgPool,
-	u: UserId,
+	u: &UserId,
 	id: uuid::Uuid,
 	index_range: Range<i32>,
 ) -> anyhow::Result<Vec<WebEntry>> {
@@ -102,7 +102,7 @@ pub async fn get_entry_by_index_range(
 
 pub async fn delete_entry_by_id(
 	db: &PgPool,
-	u: UserId,
+	u: &UserId,
 	ts_id: uuid::Uuid,
 	index: i32,
 ) -> anyhow::Result<()> {
