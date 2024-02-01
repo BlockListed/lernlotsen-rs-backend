@@ -367,7 +367,16 @@ pub async fn information(
 	let next_missing = futures_util::future::join_all(
 		timeslots
 			.iter()
-			.map(|ts| missing_entries(&db, &u, ts).map(move |m| (next_entry_timeslot(ts), m))),
+			.cloned()
+			.map(|ts| {
+				let db_task = db.clone();
+				let u_task = u.clone();
+
+				tokio::spawn(async move {
+					return (next_entry_timeslot(&ts), missing_entries(&db_task, &u_task, &ts).await)
+				})
+			})
+			.map(|fut| fut.map(Result::unwrap)),
 	)
 	.await;
 
