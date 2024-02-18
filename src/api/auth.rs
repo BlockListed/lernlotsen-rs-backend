@@ -1,10 +1,9 @@
-use axum::extract::{Query, State, TypedHeader};
-use axum::headers::Cookie;
-use axum::http::Request;
+use axum::extract::{Query, Request, State};
+use axum::http::StatusCode;
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use axum::Extension;
-use reqwest::StatusCode;
+use axum_extra::extract::cookie::CookieJar;
 use serde::{Deserialize, Serialize};
 
 use tracing::error;
@@ -48,7 +47,7 @@ pub struct OidcCallback {
 pub async fn authenticate(
 	State(AppState { db, auth, .. }): State<AppState>,
 	Query(q): Query<OidcCallback>,
-	TypedHeader(cookies): TypedHeader<Cookie>,
+	cookies: CookieJar,
 ) -> WebResult<&'static str, &'static str> {
 	let session_id = extract_session_id(&cookies)?;
 
@@ -86,11 +85,11 @@ impl From<AuthError> for WebError<&'static str> {
 	}
 }
 
-pub async fn auth_middleware<B>(
+pub async fn auth_middleware(
 	State(AppState { db, auth, .. }): State<AppState>,
-	TypedHeader(cookies): TypedHeader<Cookie>,
-	mut req: Request<B>,
-	next: Next<B>,
+	cookies: CookieJar,
+	mut req: Request,
+	next: Next,
 ) -> Response {
 	let session_id = match extract_session_id(&cookies) {
 		Ok(s) => s,
@@ -121,16 +120,16 @@ pub async fn auth_middleware<B>(
 
 // TODO: maybe skip the allocation by accessing the Arc<str> inside the user_id directly
 pub async fn user_id(Extension(user_id): Extension<UserId>) -> WebResult<String, &'static str> {
-	Ok::<_, (StatusCode, &'static str)>(user_id.as_str().to_owned()).transpose_web()
+	Ok::<_, WebError<&'static str>>(user_id.as_str().to_owned().into())
 }
 
-fn extract_session_id(cookies: &Cookie) -> Result<uuid::Uuid, AuthError> {
+fn extract_session_id(cookies: &CookieJar) -> Result<uuid::Uuid, AuthError> {
 	let raw_session_id = match cookies.get("session_id") {
 		Some(s) => s,
 		None => return Err(AuthError::SessionMissing),
 	};
 
-	let session_id = match uuid::Uuid::parse_str(raw_session_id) {
+	let session_id = match uuid::Uuid::parse_str(raw_session_id.value()) {
 		Ok(s) => s,
 		Err(e) => {
 			error!(?e, "failed to parse session id");
