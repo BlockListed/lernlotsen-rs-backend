@@ -12,7 +12,7 @@ pub fn get_index_range_timeslot(ts: &WebTimeSlot, range: Range<IsoWeek>) -> Opti
 
 	trace!(%start, %end, ts_id=%ts.id, "Getting timeslots in range.");
 
-	if end < ts.timerange.start {
+	if start > ts.timerange.end || end < ts.timerange.start {
 		return None;
 	}
 
