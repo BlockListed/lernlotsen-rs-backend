@@ -66,7 +66,16 @@ pub async fn run(db: PgPool, cfg: Config, auth: Authenticator) {
 					.get::<RequestId>()
 					.map_or_else(|| "unknown".into(), ToString::to_string);
 
-				info_span!("request", id = %request_id, method = %request.method(), uri = %request.uri())
+				let span = info_span!("request", id = %request_id, method = %request.method(), uri = %request.uri());
+
+                {
+                    let _enter = span.enter();
+
+                    tracing::trace!(headers=?request.headers(), "received headers");
+                }
+
+
+                span
 			}),
 		)
 		.layer(RequestIdLayer)
