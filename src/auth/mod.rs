@@ -91,16 +91,21 @@ impl Authenticator {
 		id: uuid::Uuid,
 	) -> anyhow::Result<Result<UserId, AuthenticatorError>> {
 		let Some(session) = queries::session::maybe_get_session(db, id).await? else {
+            tracing::trace!("couldn't find session");
 			return Ok(Err(AuthenticatorError::InvalidSession));
 		};
 
 		if verify_session(&session) != Ok(()) {
+            tracing::trace!("found session, but it wasn't authorized");
 			return Ok(Err(AuthenticatorError::NotAuthorized));
 		}
 
 		let user_id = match session.user_id {
 			Some(u) => u,
-			None => return Ok(Err(AuthenticatorError::InvalidSession)),
+			None => {
+                tracing::trace!("session missing user_id");
+                return Ok(Err(AuthenticatorError::InvalidSession))
+            },
 		};
 
 		Ok(Ok(UserId(user_id.into())))
