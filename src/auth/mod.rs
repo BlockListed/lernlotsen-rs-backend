@@ -103,7 +103,7 @@ impl Authenticator {
 		let user_id = match session.user_id {
 			Some(u) => u,
 			None => {
-                tracing::trace!("session missing user_id");
+                tracing::warn!("session missing user_id");
                 return Ok(Err(AuthenticatorError::InvalidSession))
             },
 		};

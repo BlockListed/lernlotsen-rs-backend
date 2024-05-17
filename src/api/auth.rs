@@ -126,7 +126,10 @@ pub async fn user_id(Extension(user_id): Extension<UserId>) -> WebResult<String,
 fn extract_session_id(cookies: &CookieJar) -> Result<uuid::Uuid, AuthError> {
 	let raw_session_id = match cookies.get("session_id") {
 		Some(s) => s,
-		None => return Err(AuthError::SessionMissing),
+		None => {
+            tracing::trace!("session id missing from request");
+            return Err(AuthError::SessionMissing)
+        },
 	};
 
 	let session_id = match uuid::Uuid::parse_str(raw_session_id.value()) {
